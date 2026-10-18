@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # The app is compiled with swiftc for both architectures on one machine,
+    # so the zip is universal by construction. Building it here rather than
+    # uploading a local zip matters when the maintainer is on a throttled
+    # connection: the runner's upload to the release is fast, ours is not.
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the router engine payload
+        run: ./fetch-payload.sh
+
+      - name: Build
+        run: ./ZLTApp/build.sh
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          ditto -c -k --sequesterRsrc --keepParent \
+            "ZLTApp/ZLT X28.app" "ZLT-X28-${GITHUB_REF_NAME}-universal.zip"
+          shasum -a 256 "ZLT-X28-${GITHUB_REF_NAME}-universal.zip" \
+            > "ZLT-X28-${GITHUB_REF_NAME}-universal.zip.sha256"
+
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ZLT-X28-*-universal.zip
+            ZLT-X28-*-universal.zip.sha256
+          generate_release_notes: true

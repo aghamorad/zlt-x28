@@ -1,0 +1,14 @@
+.DS_Store
+
+# Nothing at the top level is published unless it is listed here. The working
+# folder also holds router configs, private keys, credentials and scratch
+# captures, and none of those may reach a public repo.
+/*
+!/README.md
+!/THIRD-PARTY.md
+!/LICENSE
+!/.gitignore
+!/.github/
+!/ZLTApp/
+!/awg/
+!/build/

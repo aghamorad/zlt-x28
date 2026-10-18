@@ -1,0 +1,52 @@
+#!/bin/sh /etc/rc.common
+# Boot-time persistence for the AmneziaWG tunnel on the ZLT X28.
+# OpenWrt procd service: owns the amneziawg-go daemon (so it survives session
+# disconnects and is restarted if it dies) and brings the tunnel up after the WAN.
+#
+#   /etc/init.d/amneziawg enable    come up automatically at boot
+#   /etc/init.d/amneziawg disable   do not
+#   /etc/init.d/amneziawg start|stop
+#
+# The user-facing commands are "vpn awg on|off", which drive this service.
+
+START=99
+STOP=10
+USE_PROCD=1
+
+TUN=awg0
+CONF=/etc/amneziawg/$TUN.conf
+
+start_service() {
+    procd_open_instance
+    procd_set_param command /usr/bin/amneziawg-go "$TUN"
+    procd_set_param env WG_PROCESS_FOREGROUND=1
+    procd_set_param respawn 3600 5 5
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+
+    # Re-asserts the LAN divert after the vendor wan manager rewrites table 17000.
+    procd_open_instance keepalive
+    procd_set_param command /usr/bin/vpn-keepalive
+    procd_set_param respawn 3600 5 5
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+    # dotbridge is owned by vpn-keepalive, not procd: two supervisors race for
+    # port 53 and one of them loops on "address already in use".
+}
+
+# Runs once the daemon is up: address, config, routing, NAT.
+# At boot the WAN may not be ready yet, so retry rather than give up on the first try.
+service_started() {
+    i=0
+    while [ $i -lt 12 ]; do
+        sleep 5
+        AMNEZIAWG_FROM_INIT=1 /usr/bin/vpn awg on >/dev/null 2>&1 && return 0
+        i=$((i + 1))
+    done
+}
+
+service_stopped() {
+    AMNEZIAWG_FROM_INIT=1 /usr/bin/vpn awg off >/dev/null 2>&1
+}

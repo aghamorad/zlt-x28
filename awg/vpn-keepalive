@@ -1,0 +1,69 @@
+#!/bin/sh
+# vpn-keepalive — keeps the LAN divert in place after boot.
+#
+# The vendor's wan manager rewrites policy table 17000 after we set it, and a
+# procd respawn of amneziawg-go brings the tun back with no address or config.
+# This loop runs under the amneziawg procd service and repairs both:
+#   - tunnel healthy  -> default route in 17000 must point at awg0, NAT/MSS present
+#   - tunnel unhealthy -> LAN goes back to the raw carrier, then we retry the tunnel
+#
+# It never starts the daemon itself; procd owns that.
+
+TUN=awg0
+TABLE=17000
+WAN=ccmni1
+
+# Never let a long-lived child inherit rc.common's procd flock (fd 1000), or the
+# lock is held forever and init-script calls hang.
+exec 1000<&- 2>/dev/null
+
+healthy() { ping -c1 -W3 -I "$TUN" 8.8.8.8 >/dev/null 2>&1; }
+dns_ok()  { pgrep -x dotbridge >/dev/null 2>&1 && grep -q "^nameserver 127.0.0.2$" /tmp/dnsmasq_resolv.conf 2>/dev/null; }
+dns_fix() {
+    ip route replace 1.1.1.1/32 dev "$TUN" 2>/dev/null
+    ip route replace 100.64.0.1/32 dev "$TUN" 2>/dev/null
+    pgrep -x dotbridge >/dev/null 2>&1 || /usr/bin/dotbridge -listen 127.0.0.2:53 >/tmp/dotbridge.log 2>&1 &
+    echo "nameserver 127.0.0.2" > /tmp/dnsmasq_resolv.conf
+    kill -HUP $(pgrep -x dnsmasq) 2>/dev/null
+    say "DNS re-pointed at the tunnel resolver (dotbridge)"
+}
+routed()  { ip route show table $TABLE 2>/dev/null | grep -q "^default dev $TUN"; }
+
+divert() {
+    ip route replace default dev "$TUN" table $TABLE
+    iptables -t nat -C POSTROUTING -o "$TUN" -j MASQUERADE 2>/dev/null || \
+        iptables -t nat -A POSTROUTING -o "$TUN" -j MASQUERADE
+    iptables -t mangle -C FORWARD -o "$TUN" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || \
+        iptables -t mangle -A FORWARD -o "$TUN" -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+    say "diverted LAN to $TUN"
+}
+
+restore() {
+    ip route replace default dev "$WAN" table $TABLE 2>/dev/null
+    say "tunnel unhealthy — LAN returned to $WAN"
+}
+
+say() { echo "vpn-keepalive: $*"; }
+
+fail=0
+while :; do
+    sleep 20
+    if pgrep -f "amneziawg-go $TUN" >/dev/null 2>&1 && healthy; then
+        fail=0
+        routed || divert
+        dns_ok || dns_fix
+    else
+        fail=$((fail + 1))
+        # Two consecutive failures before touching the LAN: one lost ping is noise.
+        if [ $fail -ge 2 ] && routed; then
+            restore
+        fi
+        if [ $fail -ge 2 ] && pgrep -f "amneziawg-go $TUN" >/dev/null 2>&1; then
+            AMNEZIAWG_FROM_INIT=1 /usr/bin/vpn awg on >/dev/null 2>&1
+        fi
+        # A restarted daemon needs the full bring-up, not just the route.
+        if [ $fail -ge 4 ]; then
+            fail=0
+        fi
+    fi
+done
