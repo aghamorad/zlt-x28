@@ -127,6 +127,35 @@ enum LinkStatus: Equatable {
         case .dead(let why): return why
         }
     }
+
+    /// A result worth keeping between launches. "Testing" is not one.
+    var settled: Bool {
+        switch self {
+        case .alive, .dead: return true
+        case .untested, .testing: return false
+        }
+    }
+
+    var stored: [String: Any] {
+        switch self {
+        case .alive(let ms, let bytes):
+            return ["alive": true, "ms": ms, "bytes": bytes]
+        case .dead(let why):
+            return ["alive": false, "text": why]
+        case .untested, .testing:
+            return [:]
+        }
+    }
+
+    static func restored(_ value: Any?) -> LinkStatus? {
+        guard let dict = value as? [String: Any],
+              let alive = dict["alive"] as? Bool else { return nil }
+        if alive {
+            return .alive(ms: dict["ms"] as? Int ?? 0,
+                          bytesPerSecond: dict["bytes"] as? Int ?? 0)
+        }
+        return .dead(dict["text"] as? String ?? "Dead")
+    }
 }
 
 enum VPNEngine: String, CaseIterable, Identifiable {
@@ -642,12 +671,39 @@ final class AppModel: ObservableObject {
     private func mergeLinks(_ fresh: [LinkEntry], installed: Bool) {
         sb.installed = installed
         let previous = Dictionary(uniqueKeysWithValues: links.map { ($0.name, $0.status) })
+        let remembered = Self.rememberedLinkResults()
         links = fresh.map { entry in
             var copy = entry
-            copy.status = previous[entry.name] ?? .untested
+            if let live = previous[entry.name] {
+                copy.status = live
+            } else if let saved = LinkStatus.restored(remembered[entry.name]) {
+                copy.status = saved
+            }
             return copy
         }
         if !installed { links = [] }
+    }
+
+    private static let linkResultsKey = "linkResults"
+
+    /// Test results survive a relaunch, so a dead link stays flagged as dead
+    /// until it is tested again. The router is the source of truth for which
+    /// links exist; this only remembers what was measured about them.
+    private static func rememberedLinkResults() -> [String: Any] {
+        UserDefaults.standard.dictionary(forKey: linkResultsKey) ?? [:]
+    }
+
+    private static func remember(_ status: LinkStatus, for name: String) {
+        guard status.settled else { return }
+        var saved = rememberedLinkResults()
+        saved[name] = status.stored
+        UserDefaults.standard.set(saved, forKey: linkResultsKey)
+    }
+
+    private static func forget(_ name: String) {
+        var saved = rememberedLinkResults()
+        guard saved.removeValue(forKey: name) != nil else { return }
+        UserDefaults.standard.set(saved, forKey: linkResultsKey)
     }
 
     private static func uptimeText(_ raw: String?) -> String {
@@ -970,6 +1026,7 @@ final class AppModel: ObservableObject {
         if let index = links.firstIndex(where: { $0.name == name }) {
             links[index].status = status
         }
+        Self.remember(status, for: name)
     }
 
     func useLink(_ name: String) async {
@@ -990,6 +1047,7 @@ final class AppModel: ObservableObject {
         notice = nil
         let result = await RouterSSH.run("/usr/bin/vpn sb remove '\(name)'", timeout: 60)
         busy = nil
+        if result.ok { Self.forget(name) }
         notice = result.ok
             ? "\(name) was set aside. The router keeps a copy under "
               + "/data/zltx28/singbox/trash, so nothing is lost."

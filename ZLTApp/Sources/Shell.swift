@@ -7,6 +7,21 @@ struct ShellResult {
     var trimmed: String { output.trimmingCharacters(in: .whitespacesAndNewlines) }
 }
 
+/// Pipe output arrives on a background handler, so the buffer has to be a
+/// reference the handler and the caller share.
+private final class OutputBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage = Data()
+
+    func append(_ chunk: Data) {
+        lock.lock(); storage.append(chunk); lock.unlock()
+    }
+
+    var data: Data {
+        lock.lock(); defer { lock.unlock() }; return storage
+    }
+}
+
 enum Shell {
     static func run(_ tool: String, _ args: [String],
                     timeout: TimeInterval = 30) async -> ShellResult {
@@ -18,13 +33,12 @@ enum Shell {
                 let pipe = Pipe()
                 process.standardOutput = pipe
                 process.standardError = pipe
-                let lock = NSLock()
-                var data = Data()
+                let buffer = OutputBuffer()
                 let handle = pipe.fileHandleForReading
                 handle.readabilityHandler = { source in
                     let chunk = source.availableData
                     if chunk.isEmpty { return }
-                    lock.lock(); data.append(chunk); lock.unlock()
+                    buffer.append(chunk)
                 }
                 do {
                     try process.run()
@@ -46,10 +60,8 @@ enum Shell {
                 if process.isRunning { kill(process.processIdentifier, SIGKILL) }
                 process.waitUntilExit()
                 handle.readabilityHandler = nil
-                lock.lock()
-                data.append(handle.readDataToEndOfFile())
-                lock.unlock()
-                let text = String(data: data, encoding: .utf8) ?? ""
+                buffer.append(handle.readDataToEndOfFile())
+                let text = String(data: buffer.data, encoding: .utf8) ?? ""
                 continuation.resume(returning: ShellResult(
                     status: process.terminationStatus, output: text))
             }
