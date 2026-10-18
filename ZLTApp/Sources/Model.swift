@@ -395,6 +395,70 @@ final class AppModel: ObservableObject {
     @Published var testingAllLinks = false
     @Published var busy: String?
     @Published var notice: String?
+
+    enum UpdateState: Equatable {
+        case idle
+        case checking
+        case upToDate(String)
+        case available(String, URL)
+        case failed(String)
+    }
+    @Published var update: UpdateState = .idle
+
+    /// The version this binary reports. Compared against the repo's newest
+    /// release tag, not against a version file, so an update is known by what
+    /// was actually published.
+    var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
+
+    func checkForUpdate() async {
+        if case .checking = update { return }
+        update = .checking
+        guard let url = URL(string: "https://api.github.com/repos/aghamorad/zlt-x28/releases/latest") else {
+            update = .failed("The update address is malformed.")
+            return
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 12
+        request.setValue("ZLTX28/\(appVersion)", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                update = .failed("GitHub did not answer properly.")
+                return
+            }
+            guard http.statusCode == 200 else {
+                update = .failed("GitHub answered \(http.statusCode). Nothing to compare against yet.")
+                return
+            }
+            struct Release: Decodable { let tag_name: String; let html_url: String }
+            let release = try JSONDecoder().decode(Release.self, from: data)
+            if Self.version(release.tag_name, isNewerThan: appVersion),
+               let page = URL(string: release.html_url) {
+                update = .available(release.tag_name, page)
+            } else {
+                update = .upToDate(release.tag_name)
+            }
+        } catch {
+            update = .failed("Could not reach GitHub. The app keeps working offline; try again when you are online.")
+        }
+    }
+
+    nonisolated private static func version(_ a: String, isNewerThan b: String) -> Bool {
+        let parts = { (s: String) in
+            s.trimmingCharacters(in: CharacterSet(charactersIn: "vV "))
+                .split(separator: ".").map { Int($0) ?? 0 }
+        }
+        let lhs = parts(a), rhs = parts(b)
+        for i in 0..<max(lhs.count, rhs.count) {
+            let l = i < lhs.count ? lhs[i] : 0
+            let r = i < rhs.count ? rhs[i] : 0
+            if l != r { return l > r }
+        }
+        return false
+    }
     @Published var lastRefresh: Date?
     @Published var speed: SpeedResult?
     @Published var samples: [SpeedSample] = []

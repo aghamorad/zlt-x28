@@ -58,14 +58,23 @@ struct RootView: View {
                     .padding(.horizontal, 10)
                 }
                 Divider()
-                HStack {
-                    Text("Made by Morad")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text("v1.0")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("Made by Morad")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button {
+                            Task { await model.checkForUpdate() }
+                        } label: {
+                            Text("v\(model.appVersion)")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Check GitHub for a newer version")
+                    }
+                    updateLine
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
@@ -134,6 +143,38 @@ struct RootView: View {
         case .setup: SetupView(section: $selection)
         case .carrier: CarrierView()
         case .health: HealthView()
+        }
+    }
+
+    /// One short line, only when there is something to say. Silence is the
+    /// right answer for "I have not checked", not a permanent "up to date".
+    @ViewBuilder private var updateLine: some View {
+        switch model.update {
+        case .idle:
+            EmptyView()
+        case .checking:
+            HStack(spacing: 5) {
+                ProgressView().controlSize(.mini)
+                Text("Checking GitHub…").font(.caption2).foregroundStyle(.secondary)
+            }
+        case .upToDate(let tag):
+            Text("\(tag) is the newest release")
+                .font(.caption2).foregroundStyle(.secondary)
+        case .available(let tag, let page):
+            Button {
+                NSWorkspace.shared.open(page)
+            } label: {
+                Label("Update to \(tag)", systemImage: "arrow.down.circle.fill")
+                    .font(.caption2)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            .help("Opens the release page on GitHub")
+        case .failed(let message):
+            Text(message)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

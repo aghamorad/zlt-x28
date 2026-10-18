@@ -188,6 +188,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
         menu.addItem(open)
 
         menu.addItem(.separator())
+        let updates = NSMenuItem(title: "Check for Updates…",
+                                 action: #selector(checkForUpdates),
+                                 keyEquivalent: "")
+        updates.target = self
+        menu.addItem(updates)
+
         let credit = NSMenuItem(title: "Made by Morad", action: nil, keyEquivalent: "")
         credit.isEnabled = false
         menu.addItem(credit)
@@ -205,5 +211,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
         guard let name = sender.representedObject as? String else { return }
         Task { await model.useConfig(name) }
     }
+    @objc private func checkForUpdates() {
+        Task {
+            await model.checkForUpdate()
+            if case .available = model.update { showWindow() }
+        }
+    }
+
     @objc private func quit() { NSApp.terminate(nil) }
 }
