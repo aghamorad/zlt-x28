@@ -409,6 +409,16 @@ final class AppModel: ObservableObject {
 
     @Published var reach: Reach = .checking
     @Published var provisioned = false
+
+    /// "Have I looked?" and "I looked and failed" are different answers, and
+    /// the app should not print the second while it means the first.
+    var reachWord: String {
+        switch reach {
+        case .checking: "Checking…"
+        case .reachable: "Connected"
+        case .unreachable: "Not reachable"
+        }
+    }
     @Published var carrier = CarrierInfo()
     @Published var status = TunnelStatus()
     @Published var configs: [ConfigEntry] = []

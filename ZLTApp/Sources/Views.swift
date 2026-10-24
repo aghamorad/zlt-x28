@@ -3,7 +3,7 @@ import AppKit
 import UniformTypeIdentifiers
 
 enum SidebarSection: String, CaseIterable, Identifiable {
-    case home, vpn, radio, setup, carrier, health
+    case home, vpn, radio, setup, carrier, health, about
     var id: String { rawValue }
 
     var title: String {
@@ -14,6 +14,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .setup: return "Router setup"
         case .carrier: return "SIM & carrier"
         case .health: return "Health"
+        case .about: return "What it does"
         }
     }
 
@@ -25,6 +26,7 @@ enum SidebarSection: String, CaseIterable, Identifiable {
         case .setup: return "gearshape"
         case .carrier: return "antenna.radiowaves.left.and.right"
         case .health: return "stethoscope"
+        case .about: return "info.circle"
         }
     }
 }
@@ -143,6 +145,7 @@ struct RootView: View {
         case .setup: SetupView(section: $selection)
         case .carrier: CarrierView()
         case .health: HealthView()
+        case .about: ScopeView()
         }
     }
 
@@ -202,7 +205,7 @@ struct HomeView: View {
                         icon: "wifi.exclamationmark")
             }
 
-            if !model.provisioned && model.reach != .unreachable {
+            if !model.provisioned && model.reach == .reachable {
                 setupBanner
             }
 
@@ -214,9 +217,11 @@ struct HomeView: View {
             InfoBox(title: "What the switch actually does",
                     text: "On: everything on this Wi-Fi leaves through your VPN server "
                         + "first, so websites see the server's address instead of your "
-                        + "SIM's. Off: traffic goes straight out over the mobile network. "
-                        + "The switch changes the route only — it never touches your SIM, "
-                        + "your plan, or your Wi-Fi password.")
+                        + "SIM's. Off: traffic goes straight out over the mobile network, "
+                        + "for every device at once. The switch changes the route only — "
+                        + "it never touches your SIM, your plan, or your Wi-Fi password. "
+                        + "The full list of what this app can and cannot do is under "
+                        + "\"What it does\" in the sidebar.")
         }
     }
 
@@ -247,7 +252,7 @@ struct HomeView: View {
 
             HStack(spacing: 26) {
                 miniStat(label: "Router",
-                         value: model.reach == .reachable ? "Connected" : "Not reachable",
+                         value: model.reachWord,
                          ok: model.reach == .reachable)
                 miniStat(label: model.engine == .amnezia ? "Config" : "Link",
                          value: model.activeLabel,
@@ -265,6 +270,11 @@ struct HomeView: View {
     }
 
     private func heroText() -> (title: String, detail: String) {
+        if model.reach == .checking {
+            return ("Looking for the router",
+                    "Asking 192.168.70.1 for an answer. Nothing is wrong yet — the app "
+                    + "has simply not heard back.")
+        }
         if model.reach == .unreachable {
             return ("Can't see the router",
                     "Connect this Mac to the X28's Wi-Fi, then press refresh.")
@@ -369,12 +379,17 @@ struct VPNView: View {
     @EnvironmentObject private var model: AppModel
     @State private var pendingRemoval: ConfigEntry?
     @State private var pendingLinkRemoval: LinkEntry?
+    @State private var confirmRestart = false
     @State private var pasted = ""
 
     var body: some View {
         PageScroll {
             PageHeader(title: "VPN",
                        subtitle: "Pick how the router connects, then switch it on.")
+
+            ScopeNote("This page only manages the tunnel. It does not change the SIM, "
+                      + "the APN, the Wi-Fi, or the firmware. Switching config while the "
+                      + "tunnel is on restarts it, and devices drop for a few seconds.")
 
             engineCard
             tunnelCard
@@ -449,6 +464,13 @@ struct VPNView: View {
         } message: {
             Text("\(pendingLinkRemoval?.label ?? "This link") is moved to a trash "
                  + "folder on the router, never deleted, so you can bring it back.")
+        }
+        .alert("Restart the tunnel?", isPresented: $confirmRestart) {
+            Button("Cancel", role: .cancel) {}
+            Button("Restart") { Task { await model.restartTunnel() } }
+        } message: {
+            Text("Every device on the Wi-Fi will lose its connection for a few seconds "
+                 + "while the tunnel comes back. Nothing on the router is changed.")
         }
     }
 
@@ -531,7 +553,7 @@ struct VPNView: View {
                     }
                     HStack(spacing: 10) {
                         Button("Restart") {
-                            Task { await model.restartTunnel() }
+                            confirmRestart = true
                         }
                         .disabled(model.busy != nil)
                         Button("Test the tunnel") {
@@ -797,6 +819,10 @@ struct SetupView: View {
             PageHeader(title: "Router setup",
                        subtitle: "One time, about a minute. Safe to repeat.")
 
+            ScopeNote("Setup adds three things to the router: the VPN engine, its "
+                      + "start-up service, and an SSH key for this app. It edits nothing "
+                      + "else, never flashes the firmware, and a factory reset removes it.")
+
             if model.provisioned {
                 alreadyCard
             } else {
@@ -989,6 +1015,10 @@ struct CarrierView: View {
                        subtitle: "What the router reads from the SIM — and the little "
                             + "that is worth changing.")
 
+            ScopeNote("This page reads the SIM. The only change Optimize can make is a "
+                      + "band preference on the router, and it puts that back if the test "
+                      + "does not show an improvement.")
+
             carrierCard
             speedCard
             honestCard
@@ -1156,12 +1186,17 @@ struct CarrierView: View {
 
 struct HealthView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var confirmRestart = false
 
     var body: some View {
         PageScroll {
             PageHeader(title: "Health",
                        subtitle: "Press one button and the app tests the whole path, "
                             + "then shows you a pass or fail for each step.")
+
+            ScopeNote("Health only looks. Every check reads the router and changes "
+                      + "nothing. Restart tunnel is the one button here that interrupts "
+                      + "anything, and it asks first.")
 
             Card {
                 VStack(alignment: .leading, spacing: 14) {
@@ -1210,46 +1245,63 @@ struct HealthView: View {
             }
 
             Card {
-                VStack(alignment: .leading, spacing: 0) {
-                    row(ok: model.reach == .reachable,
-                        title: "Router",
-                        value: model.reach == .reachable
-                            ? "Answering at 192.168.70.1" : "Not reachable",
-                        detail: "This is how the app reaches the router. If it is red, "
-                              + "connect this Mac to the X28's Wi-Fi.")
-                    divider
-                    row(ok: model.provisioned,
-                        title: "VPN engine",
-                        value: model.provisioned
-                            ? (model.status.daemonRunning ? "Running" : "Installed, stopped")
-                            : "Not installed",
-                        detail: "The program on the router that does the encrypting.")
-                    divider
-                    row(ok: model.vpnOn,
-                        title: "Route",
-                        value: model.status.routeThroughTunnel
-                            ? "Traffic goes through the tunnel" : "Traffic goes direct",
-                        detail: "Only traffic from your Wi-Fi devices is redirected; the "
-                              + "router's own traffic keeps its normal path.")
-                    divider
-                    row(ok: model.status.handshakeEpoch > 0,
-                        title: "Handshake",
-                        value: model.status.handshakeText,
-                        detail: "A fresh handshake means the server is answering. If it "
-                              + "is hours old, the tunnel is up but the server is not.")
-                    divider
-                    row(ok: model.status.exitIP != "—",
-                        title: "Exit address",
-                        value: model.status.exitIP,
-                        detail: "The address websites see when the VPN is on. It should "
-                              + "be your server's, not your SIM's.")
-                    divider
-                    row(ok: model.status.bootEnabled,
-                        title: "After a power cut",
-                        value: model.status.bootEnabled
-                            ? "Starts by itself" : "Will not start by itself",
-                        detail: "The start-up service brings the tunnel back without "
-                              + "anyone touching the app.")
+                if model.reach == .reachable {
+                    VStack(alignment: .leading, spacing: 0) {
+                        row(ok: true,
+                            title: "Router",
+                            value: "Answering at 192.168.70.1",
+                            detail: "This is how the app reaches the router.")
+                        divider
+                        row(ok: model.provisioned,
+                            title: "VPN engine",
+                            value: model.provisioned
+                                ? (model.status.daemonRunning ? "Running" : "Installed, stopped")
+                                : "Not installed",
+                            detail: "The program on the router that does the encrypting.")
+                        divider
+                        row(ok: model.vpnOn,
+                            title: "Route",
+                            value: model.status.routeThroughTunnel
+                                ? "Traffic goes through the tunnel" : "Traffic goes direct",
+                            detail: "Only traffic from your Wi-Fi devices is redirected; the "
+                                  + "router's own traffic keeps its normal path.")
+                        divider
+                        row(ok: model.status.handshakeEpoch > 0,
+                            title: "Handshake",
+                            value: model.status.handshakeText,
+                            detail: "A fresh handshake means the server is answering. If it "
+                                  + "is hours old, the tunnel is up but the server is not.")
+                        divider
+                        row(ok: model.status.exitIP != "—",
+                            title: "Exit address",
+                            value: model.status.exitIP,
+                            detail: "The address websites see when the VPN is on. It should "
+                                  + "be your server's, not your SIM's.")
+                        divider
+                        row(ok: model.status.bootEnabled,
+                            title: "After a power cut",
+                            value: model.status.bootEnabled
+                                ? "Starts by itself" : "Will not start by itself",
+                            detail: "The start-up service brings the tunnel back without "
+                                  + "anyone touching the app.")
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(model.reach == .checking
+                             ? "Asking the router" : "Nothing has been read")
+                            .font(.headline)
+                        Text(model.reach == .checking
+                             ? "192.168.70.1 has not answered yet. The readings take its "
+                               + "place once it does."
+                             : "The engine, the route, the handshake, the exit address: all "
+                               + "of them live on the router behind 192.168.70.1, and this "
+                               + "Mac cannot see it. So the app prints none of them rather "
+                               + "than guess. Join the X28's Wi-Fi or plug into a LAN port, "
+                               + "then press Check again.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
 
@@ -1260,7 +1312,7 @@ struct HealthView: View {
                     Label("Check again", systemImage: "arrow.clockwise")
                 }
                 Button {
-                    Task { await model.restartTunnel() }
+                    confirmRestart = true
                 } label: {
                     Label("Restart tunnel", systemImage: "arrow.triangle.2.circlepath")
                 }
@@ -1281,17 +1333,30 @@ struct HealthView: View {
 
             Card {
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("What this app changes").font(.headline)
-                    InfoRow(label: "On the router", value: "VPN engine files and its start-up service")
-                    InfoRow(label: "VPN configs", value: "Copied into /etc/amneziawg/")
-                    InfoRow(label: "SIM, APN, firmware", value: "Never touched")
-                    InfoRow(label: "On this Mac", value: "An SSH key in Application Support")
-                    Divider()
-                    Text("ZLT X28 \(model.appVersion) · Made by Morad")
-                        .font(.caption)
+                    Text("Health only looks").font(.headline)
+                    Text("Every check here reads the router. None of them changes it, and "
+                         + "a check is safe to run with the tunnel on. The one action that "
+                         + "interrupts anything is Restart tunnel, which stops and starts "
+                         + "the tunnel — devices drop for a few seconds, and the router's "
+                         + "settings stay as they are.")
+                        .font(.callout)
                         .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Divider()
+                    Text("The full list — what the app changes, what it never touches, and "
+                         + "what it cannot do — is under \"What it does\" in the sidebar.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
+        }
+        .alert("Restart the tunnel?", isPresented: $confirmRestart) {
+            Button("Cancel", role: .cancel) {}
+            Button("Restart") { Task { await model.restartTunnel() } }
+        } message: {
+            Text("Every device on the Wi-Fi will lose its connection for a few seconds "
+                 + "while the tunnel comes back. Nothing on the router is changed.")
         }
     }
 
@@ -1343,7 +1408,7 @@ struct HealthView: View {
         let stamp = ISO8601DateFormatter().string(from: Date())
         let report = """
         ZLT X28 report — \(stamp)
-        Router: \(model.reach == .reachable ? "reachable" : "unreachable")
+        Router: \(model.reachWord)
         Model: \(model.carrier.model), firmware \(model.carrier.firmware)
         SIM: \(model.carrier.shortOperator), \(model.carrier.networkType), signal \(model.carrier.signalLevel)/5
         WAN IP: \(model.carrier.wanIP)
@@ -1377,6 +1442,8 @@ struct RadioView: View {
                 title: "Radio & bands",
                 subtitle: "The router's mobile link. See which cell it is using, "
                         + "and test whether pinning it to one band is faster.")
+            ScopeNote("Only the router's band preference changes here. Wi-Fi stays up "
+                      + "while it tests, the SIM is untouched, and Put back undoes a pin.")
             cellsCard
             lockCard
             tuneCard
@@ -1640,6 +1707,189 @@ struct RadioView: View {
     }
 }
 
+// MARK: - What it does
+
+/// The canonical answer to "what am I installing?". Every other page states
+/// its own boundary in a line; this one holds the whole list, so a person can
+/// read the limits before they trust the thing with their only internet line.
+struct ScopeView: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        PageScroll {
+            PageHeader(title: "What it does",
+                       subtitle: "The whole job in one place — and the lines it "
+                            + "does not cross.")
+
+            Card {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("The short version").font(.headline)
+                    Text("The VPN runs on the router, not on this Mac. The app is the "
+                         + "remote control: it sets the router up once, keeps your "
+                         + "connections on it, switches between them, tunes the radio, "
+                         + "and tests the whole path when something stops working. "
+                         + "Close the app and the tunnel keeps running — the Mac is "
+                         + "never part of the path.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Card {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("What it does").font(.headline)
+                    point("Sets the router up once. It copies the VPN engine onto it and "
+                          + "adds a start-up service, so the tunnel comes back by itself "
+                          + "after a power cut. Running setup again repairs it; it does "
+                          + "not duplicate anything.")
+                    Divider()
+                    point("Runs one tunnel at a time. AmneziaWG (a .conf file) or "
+                          + "sing-box (share links) — one engine, never both. The app "
+                          + "always says which one is carrying traffic and never swaps "
+                          + "behind your back.")
+                    Divider()
+                    point("Keeps your connections and tells the dead from the alive. "
+                          + "Configs and links live on the router. A link test downloads "
+                          + "a real file through it, so \"works\" means traffic moved, not "
+                          + "that a program started.")
+                    Divider()
+                    point("Measures the radio. It scans the cells the router can hear, "
+                          + "tests whether pinning a band is actually faster, keeps the "
+                          + "winner, and puts back what it changed if it cannot show an "
+                          + "improvement.")
+                    Divider()
+                    point("Explains the failure. Health tests the SIM's own line first — "
+                          + "with the VPN out of the picture — then the router, the engine, "
+                          + "the route, the handshake and the internet, and names the first "
+                          + "thing that failed.")
+                }
+            }
+
+            Card {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("What it never touches").font(.headline)
+                    ScopeRow(label: "SIM and plan",
+                             value: "Read only — it can show what the SIM reports, but it "
+                                  + "cannot activate the SIM, add a package, or change the plan")
+                    Divider()
+                    ScopeRow(label: "APN and network mode", value: "Never changed")
+                    Divider()
+                    ScopeRow(label: "Firmware",
+                             value: "Never flashed or replaced — setup works with the stock "
+                                  + "firmware as it is")
+                    Divider()
+                    ScopeRow(label: "Wi-Fi name and password", value: "Never changed")
+                    Divider()
+                    ScopeRow(label: "Router web password",
+                             value: "Never changed — setup uses it once to log in")
+                    Divider()
+                    ScopeRow(label: "This Mac's internet",
+                            value: "Never routed through the router and never modified. "
+                                 + "The app only uses the local network to reach "
+                                 + "192.168.70.1")
+                }
+            }
+
+            Card {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("What it needs").font(.headline)
+                    ScopeRow(label: "Router",
+                             value: "A ZLT X28. Firmware 1.5.x is what this was built and "
+                                  + "tested on; another version is reported, not guessed at")
+                    Divider()
+                    ScopeRow(label: "This Mac",
+                             value: "macOS 13 or newer, Apple Silicon or Intel. On the "
+                                  + "router's Wi-Fi or a LAN cable for setup and readings")
+                    Divider()
+                    ScopeRow(label: "Password",
+                             value: "The router's admin password — its web page, often "
+                                  + "\"admin\". This is not the Wi-Fi password")
+                    Divider()
+                    ScopeRow(label: "A VPN of your own",
+                             value: "A .conf from your server or a provider, or share links. "
+                                  + "The app does not come with a server and does not "
+                                  + "connect you to anyone's")
+                    Divider()
+                    ScopeRow(label: "First launch",
+                            value: "The app is signed ad-hoc, not notarised, so macOS "
+                                 + "wants right-click → Open once. After that it opens "
+                                 + "normally")
+                }
+            }
+
+            Card {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("What it cannot do").font(.headline)
+                    point("Create signal. Where the SIM has no usable line there is "
+                          + "nothing for the tunnel to carry, and no setting here "
+                          + "changes that. Health will name it.")
+                    Divider()
+                    point("Make a slow line fast. Band locking picks the best of what the "
+                          + "carrier is already giving you. It does not add capacity.")
+                    Divider()
+                    point("Lift a carrier wall. If the line only reaches the carrier's own "
+                          + "sites — a walled garden — the problem is the SIM's data "
+                          + "package or its identity check, not the router and not the "
+                          + "VPN. Switching the tunnel on will not change it.")
+                    Divider()
+                    point("Import OpenVPN files. A config must be a WireGuard or "
+                          + "AmneziaWG .conf. OpenVPN profiles are refused.")
+                    Divider()
+                    point("Run both engines at once. It is AmneziaWG or links, one at a "
+                          + "time, and the app says which.")
+                    Divider()
+                    point("Survive a factory reset. A reset erases the engine, the "
+                          + "start-up service and every config. Run setup again.")
+                    Divider()
+                    point("Reach the router from outside the house. Everything goes over "
+                          + "the local network at 192.168.70.1. There is no remote "
+                          + "control.")
+                }
+            }
+
+            Card {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("What it writes, and where").font(.headline)
+                    ScopeRow(label: "On the router",
+                             value: "The VPN engine, its start-up service, an SSH key for "
+                                  + "this app, configs in /etc/amneziawg/, links under "
+                                  + "/data/zltx28/")
+                    Divider()
+                    ScopeRow(label: "On this Mac",
+                             value: "An SSH key in Application Support, and the remembered "
+                                  + "list of what is installed. Nothing else")
+                    Divider()
+                    ScopeRow(label: "Anywhere else", value: "Nothing")
+                    Divider()
+                    Text("ZLT X28 \(model.appVersion) · Made by Morad")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            InfoBox(title: "Removing is setting aside",
+                    text: "Taking a config or a link off the list renames it on the router "
+                        + "rather than deleting it, so it can be brought back. Nothing in "
+                        + "this app removes a file outright.",
+                    icon: "arrow.uturn.backward.circle")
+        }
+    }
+
+    private func point(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Circle()
+                .fill(Color.secondary.opacity(0.55))
+                .frame(width: 5, height: 5)
+                .padding(.top, 6)
+            Text(text)
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+    }
+}
+
 // MARK: - Shared pieces
 
 struct PageScroll<Content: View>: View {
@@ -1718,6 +1968,48 @@ struct InfoBox: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
             .fill(Color.accentColor.opacity(0.07)))
+    }
+}
+
+/// One muted line at the top of a page: what this page can change, and what it
+/// leaves alone. Quieter than an InfoBox on purpose — it is a boundary marker,
+/// not a lesson.
+struct ScopeNote: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "checkmark.shield")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+            Text(text)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 2)
+    }
+}
+
+/// Label above value, for long sentences that would choke a trailing label.
+struct ScopeRow: View {
+    let label: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.callout.weight(.medium))
+            Text(value)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

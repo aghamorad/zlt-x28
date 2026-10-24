@@ -1,3 +1,21 @@
+## ZLT X28 1.2.0
+
+**Every screen now says what it will do to your router before it does it, and one new page says it all in one place.**
+
+The app has always been careful with the router — it installs an engine, sets a band preference, starts and stops a tunnel — but it kept that care to itself. You had to read the README to learn that setup never flashes firmware, that Health never writes anything, that removing a link moves it aside instead of deleting it. A person should not have to find out what a button does by pressing it.
+
+So there is a new page in the sidebar, **What it does**, with five lists: what the app does, what it never touches (the SIM and the plan, the APN, the Wi-Fi name and password, the router's password, the firmware, this Mac's own internet), what it needs, what it cannot do, and what it writes and where. The "cannot" list is the one worth reading. It cannot create signal, make a slow line fast, lift a carrier's wall, or run both engines at once.
+
+The other pages carry the same thing in one line at the top, limited to their own job. Health's line says it only looks. Setup's says it adds three things and nothing else. The SIM page's says the only change Optimize can make is a band preference, and that it puts that back when the test does not help.
+
+The two buttons that interrupt the tunnel — Restart on VPN, Restart tunnel on Health — now ask first, and the question says what will happen: every device on the Wi-Fi drops for a few seconds, and nothing on the router changes.
+
+Two smaller fixes came from watching the app launch. The Router line used to read "Not reachable" for the second or two before the router answered, when the truth was "I have not asked yet". It now says **Checking…** until there is an answer. And Health printed its six readings even when the router could not be seen at all, which meant six confident claims — not installed, traffic goes direct, will not start by itself — about a machine the app had never reached. That card now says nothing has been read and why, and the readings appear when there is something behind them.
+
+One correction to the 1.0.0 notes, which said the app does not import OpenVPN **or WireGuard** files. That was wrong about WireGuard. A `.conf` file is the main way into this app and has been since the first build; what the app refuses is OpenVPN. The new page states it correctly.
+
+Nothing about the router changes in this version. It is a change to what the app tells you about itself.
+
 ## ZLT X28 1.1.1
 
 **The app now knows which build it is, and the update check follows the code, not the release page.** Two small things, both about the app being honest about itself.

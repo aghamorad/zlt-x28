@@ -22,6 +22,10 @@ to do before it does it.
 | **Router setup** | The one-time job: log in, install the engine, done. Safe to run again. |
 | **SIM & carrier** | Reads the SIM and offers **Optimize** — a measured band test using the known fast lanes for IranCell and MCI. |
 | **Health** | Press one button; it walks the whole path — router, engine, route, handshake, internet — and names the first thing that failed. |
+| **What it does** | The whole job in one place: what the app changes, what it never touches, what it needs, what it cannot do, and what it writes to the router and to this Mac. |
+
+Every screen also opens with one line stating its own boundary. If you want to know
+what a button will do before you press it, that line is the answer.
 
 The point of the Links page is that servers die. You paste in ten, the app speed-tests
 each one, marks which are alive, and you pick the fastest. When one dies you remove it
@@ -37,7 +41,7 @@ and pick another. Nothing here needs a server or an account.
 
 ## Install
 
-1. Download `ZLT-X28-v1.1.1-universal.zip` from
+1. Download `ZLT-X28-v1.2.0-universal.zip` from
    [Releases](../../releases/latest) and unzip it.
 2. Drag **ZLT X28** into **Applications**.
 3. Open it. The first launch will be blocked because the app is signed ad-hoc, not
