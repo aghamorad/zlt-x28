@@ -32,11 +32,17 @@ jobs:
           shasum -a 256 "ZLT-X28-${GITHUB_REF_NAME}-universal.zip" \
             > "ZLT-X28-${GITHUB_REF_NAME}-universal.zip.sha256"
 
+      # RELEASE_NOTES.md is written by hand, newest section first. The release
+      # body is that first section, so the notes a tag publishes are the ones
+      # written for it rather than a list of commits.
+      - name: Take the notes for this version
+        run: awk '/^## /{n++} n==1' RELEASE_NOTES.md > body.md
+
       - name: Publish
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          body_path: body.md
           files: |
             ZLT-X28-*-universal.zip
             ZLT-X28-*-universal.zip.sha256
-          generate_release_notes: true

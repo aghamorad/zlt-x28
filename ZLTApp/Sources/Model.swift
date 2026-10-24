@@ -1158,6 +1158,51 @@ final class AppModel: ObservableObject {
             return
         }
 
+        // The SIM's line, before anything about the tunnel: a carrier can hand out
+        // an address and a default route and still block everything but its own
+        // site. Every later check then passes while the user has no internet.
+        let lineProbe = await RouterSSH.run(
+            "WAN=$(ip route | awk '/^default/{for(i=1;i<=NF;i++) if($i==\"dev\")"
+            + "{print $(i+1); exit}}'); echo \"$WAN\"; echo '@@'; "
+            + "curl -sk -m 10 -o /dev/null -w '%{http_code}' "
+            + "-4 --interface \"$WAN\" https://www.digikala.com 2>/dev/null; echo; echo '@@'; "
+            + "curl -sk -m 10 -o /dev/null -w '%{http_code}' "
+            + "-4 --interface \"$WAN\" https://mci.ir 2>/dev/null; echo",
+            timeout: 45)
+        let lineParts = lineProbe.output.components(separatedBy: "@@")
+        let wanIf = lineParts.first?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let openNet = lineParts.count > 1 && lineParts[1].contains("200")
+        let carrierAnswers = lineParts.count > 2 && lineParts[2].contains("200")
+
+        if openNet {
+            rows.append(CheckItem(
+                title: "The SIM's line has internet of its own",
+                ok: true,
+                detail: wanIf.isEmpty
+                    ? "The router reached an Iranian site directly, without the tunnel."
+                    : "The router reached an Iranian site directly on \(wanIf), "
+                    + "without the tunnel."))
+        } else if carrierAnswers {
+            rows.append(CheckItem(
+                title: "The SIM's line is limited to the carrier",
+                ok: false,
+                detail: "The router can reach the carrier's own site but nothing else, "
+                      + "so this line has been given a captive session. That is not a "
+                      + "fault in the router or in the VPN, and the tunnel cannot fix "
+                      + "it. It usually means the line has no data package for use in "
+                      + "a modem — the carrier sells those separately from phone "
+                      + "packages — or that the line's identity check (احراز هویت) is "
+                      + "unfinished. Settle that with the carrier first."))
+        } else {
+            rows.append(CheckItem(
+                title: "The SIM's line answers at all",
+                ok: false,
+                detail: "Nothing came back from the router's own connection. Check "
+                      + "that the SIM is seated and that data is on, then run the "
+                      + "checks again."))
+        }
+
         rows.append(CheckItem(
             title: "The VPN engine is installed",
             ok: provisioned,

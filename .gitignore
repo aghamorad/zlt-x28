@@ -5,6 +5,7 @@
 # captures, and none of those may reach a public repo.
 /*
 !/README.md
+!/RELEASE_NOTES.md
 !/THIRD-PARTY.md
 !/LICENSE
 !/.gitignore
