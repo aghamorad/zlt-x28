@@ -14,7 +14,11 @@ jobs:
     # so the zip is universal by construction. Building it here rather than
     # uploading a local zip matters when the maintainer is on a throttled
     # connection: the runner's upload to the release is fast, ours is not.
-    runs-on: macos-14
+    # A current runner, not the oldest one. macos-14 ships a Swift compiler old
+    # enough to give up ("unable to type-check this expression in reasonable
+    # time") on SwiftUI bodies the maintainer's own toolchain compiles without
+    # complaint. The binaries still target macOS 13 — see -target in build.sh.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 

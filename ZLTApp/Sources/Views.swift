@@ -1269,64 +1269,90 @@ struct HealthView: View {
     private var readingsCard: some View {
         Card {
             if model.reach == .reachable {
-                VStack(alignment: .leading, spacing: 0) {
-                    row(ok: true,
-                        title: "Router",
-                        value: "Answering at 192.168.70.1",
-                        detail: "This is how the app reaches the router.")
-                    divider
-                    row(ok: model.provisioned,
-                        title: "VPN engine",
-                        value: model.provisioned
-                            ? (model.status.daemonRunning ? "Running" : "Installed, stopped")
-                            : "Not installed",
-                        detail: "The program on the router that does the encrypting.")
-                    divider
-                    row(ok: model.vpnOn,
-                        title: "Route",
-                        value: model.status.routeThroughTunnel
-                            ? "Traffic goes through the tunnel" : "Traffic goes direct",
-                        detail: "Only traffic from your Wi-Fi devices is redirected; the "
-                              + "router's own traffic keeps its normal path.")
-                    divider
-                    row(ok: model.status.handshakeEpoch > 0,
-                        title: "Handshake",
-                        value: model.status.handshakeText,
-                        detail: "A fresh handshake means the server is answering. If it "
-                              + "is hours old, the tunnel is up but the server is not.")
-                    divider
-                    row(ok: model.status.exitIP != "—",
-                        title: "Exit address",
-                        value: model.status.exitIP,
-                        detail: "The address websites see when the VPN is on. It should "
-                              + "be your server's, not your SIM's.")
-                    divider
-                    row(ok: model.status.bootEnabled,
-                        title: "After a power cut",
-                        value: model.status.bootEnabled
-                            ? "Starts by itself" : "Will not start by itself",
-                        detail: "The start-up service brings the tunnel back without "
-                              + "anyone touching the app.")
-                }
+                readingsList
             } else {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(model.reach == .checking
-                         ? "Asking the router" : "Nothing has been read")
-                        .font(.headline)
-                    Text(model.reach == .checking
-                         ? "192.168.70.1 has not answered yet. The readings take its "
-                           + "place once it does."
-                         : "The engine, the route, the handshake, the exit address: all "
-                           + "of them live on the router behind 192.168.70.1, and this "
-                           + "Mac cannot see it. So the app prints none of them rather "
-                           + "than guess. Join the X28's Wi-Fi or plug into a LAN port, "
-                           + "then press Check again.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                noReadings
             }
         }
+    }
+
+    private var readingsList: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            readingsTop
+            divider
+            readingsBottom
+        }
+    }
+
+    private var readingsTop: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            row(ok: true,
+                title: "Router",
+                value: "Answering at 192.168.70.1",
+                detail: "This is how the app reaches the router.")
+            divider
+            row(ok: model.provisioned,
+                title: "VPN engine",
+                value: engineWord,
+                detail: "The program on the router that does the encrypting.")
+            divider
+            row(ok: model.vpnOn,
+                title: "Route",
+                value: model.status.routeThroughTunnel
+                    ? "Traffic goes through the tunnel" : "Traffic goes direct",
+                detail: "Only traffic from your Wi-Fi devices is redirected; the "
+                      + "router's own traffic keeps its normal path.")
+        }
+    }
+
+    private var readingsBottom: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            row(ok: model.status.handshakeEpoch > 0,
+                title: "Handshake",
+                value: model.status.handshakeText,
+                detail: "A fresh handshake means the server is answering. If it "
+                      + "is hours old, the tunnel is up but the server is not.")
+            divider
+            row(ok: model.status.exitIP != "—",
+                title: "Exit address",
+                value: model.status.exitIP,
+                detail: "The address websites see when the VPN is on. It should "
+                      + "be your server's, not your SIM's.")
+            divider
+            row(ok: model.status.bootEnabled,
+                title: "After a power cut",
+                value: model.status.bootEnabled
+                    ? "Starts by itself" : "Will not start by itself",
+                detail: "The start-up service brings the tunnel back without "
+                      + "anyone touching the app.")
+        }
+    }
+
+    private var engineWord: String {
+        guard model.provisioned else { return "Not installed" }
+        return model.status.daemonRunning ? "Running" : "Installed, stopped"
+    }
+
+    private var noReadings: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(model.reach == .checking ? "Asking the router" : "Nothing has been read")
+                .font(.headline)
+            Text(unreadDetail)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private var unreadDetail: String {
+        if model.reach == .checking {
+            return "192.168.70.1 has not answered yet. The readings take its place "
+                 + "once it does."
+        }
+        return "The engine, the route, the handshake, the exit address: all of them "
+             + "live on the router behind 192.168.70.1, and this Mac cannot see it. "
+             + "So the app prints none of them rather than guess. Join the X28's "
+             + "Wi-Fi or plug into a LAN port, then press Check again."
     }
 
     @ViewBuilder
@@ -1739,6 +1765,7 @@ struct ScopeView: View {
     var body: some View {
         PageScroll {
             headerBlock
+            shortVersionCard
             doesCard
             neverTouchesCard
             needsCard
@@ -1748,26 +1775,32 @@ struct ScopeView: View {
         }
     }
 
-    @ViewBuilder
     private var headerBlock: some View {
-        PageHeader(title: "What it does",
-                   subtitle: "The whole job in one place — and the lines it "
-                        + "does not cross.")
+        PageHeader(title: "What it does", subtitle: headerSubtitle)
+    }
 
+    private var headerSubtitle: String {
+        "The whole job in one place — and the lines it does not cross."
+    }
+
+    private var shortVersionCard: some View {
         Card {
             VStack(alignment: .leading, spacing: 8) {
                 Text("The short version").font(.headline)
-                Text("The VPN runs on the router, not on this Mac. The app is the "
-                     + "remote control: it sets the router up once, keeps your "
-                     + "connections on it, switches between them, tunes the radio, "
-                     + "and tests the whole path when something stops working. "
-                     + "Close the app and the tunnel keeps running — the Mac is "
-                     + "never part of the path.")
+                Text(shortVersionText)
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private var shortVersionText: String {
+        "The VPN runs on the router, not on this Mac. The app is the remote "
+        + "control: it sets the router up once, keeps your connections on it, "
+        + "switches between them, tunes the radio, and tests the whole path "
+        + "when something stops working. Close the app and the tunnel keeps "
+        + "running — the Mac is never part of the path."
     }
 
     @ViewBuilder
