@@ -1,3 +1,13 @@
+## ZLT X28 1.1.1
+
+**The app now knows which build it is, and the update check follows the code, not the release page.** Two small things, both about the app being honest about itself.
+
+The About card used to print "1.0" no matter which version you were running — a hardcoded string left from the first build. It now reads the version out of the app itself, so an update that lands is the version you see.
+
+The update check used to ask GitHub for the newest *release*. That sounds right until you push a fix and do not cut a release: the app tells you it is current while newer code sits on the branch. Every build now stamps the commit it was compiled from into its own Info.plist, and the check compares that against `main`. If a release is newer than your version, it offers the release. If only the branch has moved, it says so and gives you the date of the newest commit.
+
+Nothing about the router changes in this version. It is a fix to the app only.
+
 ## ZLT X28 1.1.0
 
 **The checks now start with the line, not the tunnel.** A carrier can give you an address, a route and a signal, and still let you reach nothing but its own website. Every other check in this app passes in that state, because the router, the engine and the tunnel are all fine. What fails is the thing the tunnel was supposed to carry.

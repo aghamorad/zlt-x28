@@ -434,45 +434,82 @@ final class AppModel: ObservableObject {
     }
     @Published var update: UpdateState = .idle
 
-    /// The version this binary reports. Compared against the repo's newest
-    /// release tag, not against a version file, so an update is known by what
-    /// was actually published.
+    /// The version this binary reports.
     var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
     }
 
+    /// The commit this binary was built from, stamped into Info.plist by
+    /// build.sh. The update check compares it against main, so a fix pushed
+    /// without a release still counts — releases can lag the branch.
+    var buildCommit: String {
+        Bundle.main.object(forInfoDictionaryKey: "ZLTBuildCommit") as? String ?? "unknown"
+    }
+
+    private static let repoAPI = "https://api.github.com/repos/aghamorad/zlt-x28"
+
     func checkForUpdate() async {
         if case .checking = update { return }
         update = .checking
-        guard let url = URL(string: "https://api.github.com/repos/aghamorad/zlt-x28/releases/latest") else {
-            update = .failed("The update address is malformed.")
-            return
-        }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 12
-        request.setValue("ZLTX28/\(appVersion)", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse else {
+            let release = try await Self.get(Self.repoAPI + "/releases/latest", as: Release.self, missingOK: true)
+            if let release, Self.version(release.tag_name, isNewerThan: appVersion),
+               let page = URL(string: release.html_url) {
+                update = .available("Update to \(release.tag_name)", page)
+                return
+            }
+            let head = try await Self.get(Self.repoAPI + "/commits/main", as: Commit.self)
+            guard let head, let page = URL(string: head.html_url) else {
                 update = .failed("GitHub did not answer properly.")
                 return
             }
-            guard http.statusCode == 200 else {
-                update = .failed("GitHub answered \(http.statusCode). Nothing to compare against yet.")
+            guard buildCommit != "unknown" else {
+                update = .upToDate("\(release?.tag_name ?? "v\(appVersion)") is the newest release; this build records no commit")
                 return
             }
-            struct Release: Decodable { let tag_name: String; let html_url: String }
-            let release = try JSONDecoder().decode(Release.self, from: data)
-            if Self.version(release.tag_name, isNewerThan: appVersion),
-               let page = URL(string: release.html_url) {
-                update = .available(release.tag_name, page)
+            if !head.sha.hasPrefix(buildCommit) {
+                let day = String(head.commit.committer.date.prefix(10))
+                update = .available("Newer code on main, from \(day)", page)
             } else {
-                update = .upToDate(release.tag_name)
+                update = .upToDate("This is the newest code on main.")
             }
         } catch {
             update = .failed("Could not reach GitHub. The app keeps working offline; try again when you are online.")
         }
+    }
+
+    private struct Release: Decodable {
+        let tag_name: String
+        let html_url: String
+    }
+
+    private struct Commit: Decodable {
+        struct Detail: Decodable { let committer: Person }
+        struct Person: Decodable { let date: String }
+        let sha: String
+        let html_url: String
+        let commit: Detail
+    }
+
+    private static func get<T: Decodable>(_ address: String, as type: T.Type,
+                                          missingOK: Bool = false) async throws -> T? {
+        guard let url = URL(string: address) else {
+            throw URLError(.badURL)
+        }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 12
+        request.setValue("ZLTX28/\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")",
+                         forHTTPHeaderField: "User-Agent")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        if http.statusCode == 404, missingOK { return nil }
+        guard http.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        return try JSONDecoder().decode(T.self, from: data)
     }
 
     nonisolated private static func version(_ a: String, isNewerThan b: String) -> Bool {

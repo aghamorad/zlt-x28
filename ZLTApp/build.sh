@@ -33,7 +33,13 @@ cp "$HERE/Resources/router/install.sh"     "$APP/Contents/Resources/router/insta
 echo "Copying the icon…"
 cp "$HERE/Resources/AppIcon.icns"          "$APP/Contents/Resources/AppIcon.icns"
 
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+# Provenance: the commit this bundle was compiled from. The app's update
+# check compares it against main, so a fix that never got a release is still
+# recognised as newer. Outside a git checkout it stays "unknown".
+COMMIT="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -45,8 +51,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleDisplayName</key>           <string>ZLT X28</string>
     <key>CFBundleIconFile</key>              <string>AppIcon.icns</string>
     <key>CFBundlePackageType</key>           <string>APPL</string>
-    <key>CFBundleShortVersionString</key>    <string>1.1.0</string>
-    <key>CFBundleVersion</key>               <string>2</string>
+    <key>CFBundleShortVersionString</key>    <string>1.1.1</string>
+    <key>CFBundleVersion</key>               <string>3</string>
+    <key>ZLTBuildCommit</key>                <string>${COMMIT}</string>
+    <key>ZLTBuildDate</key>                  <string>${BUILD_DATE}</string>
     <key>LSMinimumSystemVersion</key>        <string>13.0</string>
     <key>NSHighResolutionCapable</key>       <true/>
     <key>NSPrincipalClass</key>              <string>NSApplication</string>

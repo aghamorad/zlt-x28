@@ -157,19 +157,20 @@ struct RootView: View {
                 ProgressView().controlSize(.mini)
                 Text("Checking GitHub…").font(.caption2).foregroundStyle(.secondary)
             }
-        case .upToDate(let tag):
-            Text("\(tag) is the newest release")
+        case .upToDate(let note):
+            Text(note)
                 .font(.caption2).foregroundStyle(.secondary)
-        case .available(let tag, let page):
+                .fixedSize(horizontal: false, vertical: true)
+        case .available(let label, let page):
             Button {
                 NSWorkspace.shared.open(page)
             } label: {
-                Label("Update to \(tag)", systemImage: "arrow.down.circle.fill")
+                Label(label, systemImage: "arrow.down.circle.fill")
                     .font(.caption2)
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)
-            .help("Opens the release page on GitHub")
+            .help("Opens GitHub in your browser")
         case .failed(let message):
             Text(message)
                 .font(.caption2)
@@ -1286,7 +1287,7 @@ struct HealthView: View {
                     InfoRow(label: "SIM, APN, firmware", value: "Never touched")
                     InfoRow(label: "On this Mac", value: "An SSH key in Application Support")
                     Divider()
-                    Text("ZLT X28 1.0 · Made by Morad")
+                    Text("ZLT X28 \(model.appVersion) · Made by Morad")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

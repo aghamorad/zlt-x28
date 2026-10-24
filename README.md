@@ -37,7 +37,7 @@ and pick another. Nothing here needs a server or an account.
 
 ## Install
 
-1. Download `ZLT-X28-v1.1.0-universal.zip` from
+1. Download `ZLT-X28-v1.1.1-universal.zip` from
    [Releases](../../releases/latest) and unzip it.
 2. Drag **ZLT X28** into **Applications**.
 3. Open it. The first launch will be blocked because the app is signed ad-hoc, not
