@@ -96,7 +96,7 @@ func (a *app) static(w http.ResponseWriter,r *http.Request) {
 	path:=strings.TrimPrefix(filepath.Clean("/"+r.URL.Path),"/"); if path==""||path=="." {path="index.html"}
 	if strings.Contains(path,".."){http.NotFound(w,r);return}
 	b,err:=assets.ReadFile("static/"+path);if err!=nil{http.NotFound(w,r);return}
-	ct:="application/octet-stream";switch filepath.Ext(path){case ".html":ct="text/html; charset=utf-8";case ".css":ct="text/css; charset=utf-8";case ".js":ct="text/javascript; charset=utf-8"}
+	ct:="application/octet-stream";switch filepath.Ext(path){case ".html":ct="text/html; charset=utf-8";case ".css":ct="text/css; charset=utf-8";case ".js":ct="text/javascript; charset=utf-8";case ".json":ct="application/manifest+json";case ".svg":ct="image/svg+xml"}
 	w.Header().Set("Content-Type",ct);w.Header().Set("Cache-Control","no-cache");_,_=w.Write(b)
 }
 
@@ -134,7 +134,7 @@ func lines(s string)[]string{out:=[]string{};for _,v:=range strings.Split(s,"\n"
 func line(s,prefix string)string{for _,v:=range strings.Split(s,"\n"){v=strings.TrimSpace(v);if strings.HasPrefix(v,prefix){return strings.TrimSpace(strings.TrimPrefix(v,prefix))}};return "—"}
 
 func (a *app) status(w http.ResponseWriter,r *http.Request){
-	awg,_:=run(15*time.Second,"awg","status");sb,_:=run(10*time.Second,"sb","status","quick");cfg,_:=run(10*time.Second,"awg","list");lnk,_:=run(10*time.Second,"sb","list")
+	awg,_:=run(15*time.Second,"awg","status");sb,_:=run(10*time.Second,"sb","status");cfg,_:=run(10*time.Second,"awg","list");lnk,_:=run(10*time.Second,"sb","list")
 	awgOn:=strings.Contains(awg,"daemon   : running")&&strings.Contains(awg,"route    : default dev awg0")
 	sbOn:=strings.Contains(sb,"daemon   : running")&&strings.Contains(sb,"route    : default dev sb0")
 	engine:="off";if awgOn{engine="awg"}else if sbOn{engine="sb"}
