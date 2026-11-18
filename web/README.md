@@ -32,7 +32,9 @@ The dashboard is local HTTP, not TLS. It must remain on the trusted router LAN;
 do not forward port 8080 or expose it to the internet. The server rejects
 clients outside the configured LAN CIDR and checks same-origin POST requests.
 Only explicit VPN operations are exposed; request data is never passed to a
-shell.
+shell. iOS Safari can save the responsive page as a Home Screen shortcut. Full
+PWA installation and offline operation require trusted HTTPS, which this local
+HTTP service does not currently provide.
 
 ## API
 
