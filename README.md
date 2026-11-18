@@ -68,20 +68,20 @@ The SHA-256 of the zip is published next to it, so you can check the download.
 ## The local web dashboard
 
 The setup process also installs a small Go web server on the router and enables it
-under \`procd\`, so it starts again after a reboot. Open
+under `procd`, so it starts again after a reboot. Open
 [http://192.168.70.1:8080](http://192.168.70.1:8080) from a phone, tablet or computer
 connected to the X28 Wi-Fi. The dashboard runs on the router itself; the Mac app does
 not need to be open or even switched on.
 
 The dashboard can start and stop either VPN engine, restart a tunnel, switch saved
-AmneziaWG configs or sing-box links, import \`.conf\` files and proxy links, test the
+AmneziaWG configs or sing-box links, import `.conf` files and proxy links, test the
 sing-box links, and move old configurations aside. It accepts VLESS, VMess, Trojan,
 Shadowsocks, Hysteria2 and SOCKS5 share links. It is also installable from the browser's
 "Add to Home Screen" action.
 
-The password is generated once and kept at \`/data/zltx28/web/password\` with root-only
+The password is generated once and kept at `/data/zltx28/web/password` with root-only
 file permissions. Re-running setup preserves it. The server only accepts clients from
-the X28 LAN subnet (\`192.168.70.0/24\`) and uses a 12-hour browser session after login.
+the X28 LAN subnet (`192.168.70.0/24`) and uses a 12-hour browser session after login.
 The dashboard uses local HTTP, not HTTPS: use it only on your trusted, WPA-protected
 home Wi-Fi, and do not expose port 8080 to the internet.
 
