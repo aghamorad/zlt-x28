@@ -85,6 +85,7 @@ func loadPassword(path string) (string, bool, error) {
 
 func (a *app) lanOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter,r *http.Request){
+		if r.Host!="192.168.70.1:8080" && r.Host!="192.168.70.1" { http.Error(w,"forbidden host",403); return }
 		host,_,err:=net.SplitHostPort(r.RemoteAddr); ip:=net.ParseIP(host)
 		if err!=nil || ip==nil || (!ip.IsLoopback()&&!a.lan.Contains(ip)){http.Error(w,"forbidden",403);return}
 		w.Header().Set("X-Content-Type-Options","nosniff")
