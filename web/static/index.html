@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10151d"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="/manifest.json"><link rel="icon" href="/icon.svg" type="image/svg+xml"><title>ZLT X28</title><link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main class="shell">
+<header class="topbar"><div class="brand"><span class="mark">Z</span><div><b>ZLT X28</b><small>LOCAL CONTROL PANEL</small></div></div><div class="top-actions"><span id="connection" class="connection">Connecting…</span><button id="refresh" class="icon-btn" aria-label="Refresh">↻</button></div></header>
+<section id="login" class="login card"><div class="eyebrow">PRIVATE NETWORK</div><h1>Your router,<br>under your control.</h1><p>Sign in with the dashboard password shown by the ZLT setup app.</p><form id="login-form"><label for="password">Dashboard password</label><input id="password" type="password" autocomplete="current-password" required><button class="primary full">Unlock dashboard</button><p id="login-error" class="error"></p></form><p class="muted tiny">Available only from devices on your router's local Wi-Fi network.</p></section>
+<section id="app" hidden>
+<nav class="tabs"><button class="tab active" data-tab="home">Overview</button><button class="tab" data-tab="servers">Servers</button><button class="tab" data-tab="settings">Settings</button></nav>
+<section id="tab-home" class="tab-panel">
+<article class="hero card"><div class="hero-top"><div><div class="eyebrow">TUNNEL STATUS</div><h1 id="vpn-state">Checking…</h1><p id="vpn-subtitle" class="muted">Reading router status</p></div><div id="shield" class="shield">◇</div></div><div class="engine-row"><span class="muted">Control engine</span><select id="engine"><option value="awg">AmneziaWG</option><option value="sb">sing-box</option></select></div><div class="controls"><button id="toggle" class="primary">Turn VPN on</button><button id="restart" class="secondary">Restart</button></div><p id="action-message" class="message" aria-live="polite"></p></article>
+<div class="stats"><article class="stat card"><span>ACTIVE SERVER</span><strong id="active-server">—</strong></article><article class="stat card"><span>EXIT IP</span><strong id="exit-ip">—</strong></article></div>
+<article class="card"><div class="section-heading"><div><div class="eyebrow">ROUTER</div><h2>Engine status</h2></div><span class="live">LIVE</span></div><pre id="engine-status">Waiting for status…</pre></article>
+</section>
+<section id="tab-servers" class="tab-panel" hidden>
+<article class="card"><div class="section-heading"><div><div class="eyebrow">AMNEZIAWG</div><h2>Configuration files</h2></div></div><div id="awg-list" class="server-list"></div><form id="awg-import" class="import-form"><h3>Import a .conf file</h3><input id="awg-file" type="file" accept=".conf,.txt"><div class="field-row"><input id="awg-name" placeholder="Configuration name" maxlength="48"><button class="primary">Add config</button></div></form></article>
+<article class="card"><div class="section-heading"><div><div class="eyebrow">SING-BOX</div><h2>Proxy links</h2></div><button id="test-all" class="secondary small">Test all</button></div><div id="sb-list" class="server-list"></div><form id="link-import" class="import-form"><h3>Add proxy links</h3><p class="muted tiny">Paste one or more links, one per line. Supported: VLESS, VMess, Trojan, Shadowsocks, Hysteria2 and SOCKS5.</p><textarea id="link-text" rows="5" placeholder="vless://…&#10;vmess://…"></textarea><button class="primary full">Import links</button></form><p id="test-results" class="message"></p></article>
+</section>
+<section id="tab-settings" class="tab-panel" hidden><article class="card"><div class="eyebrow">SECURITY</div><h2>Dashboard access</h2><p class="muted">Access is restricted to devices on the router's local subnet. Sessions expire after 12 hours.</p><button id="logout" class="secondary">Sign out</button></article><article class="card"><div class="eyebrow">LOCAL ADDRESS</div><h2>Open ZLT from your phone</h2><p class="address">http://192.168.70.1:8080</p><p class="muted tiny">Use your browser's Share menu to add this page to your Home Screen.</p></article></section>
+<footer><span>ZLT X28 · Local dashboard</span><span id="last-updated">—</span></footer>
+</section>
+</main><script src="/app.js" defer></script>
+</body></html>

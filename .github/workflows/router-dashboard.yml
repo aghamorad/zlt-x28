@@ -1,0 +1,78 @@
+name: Router dashboard CI
+
+on:
+  push:
+    branches: ["feature/router-hosted-web-panel"]
+    paths:
+      - "web/**"
+      - "go.mod"
+      - "awg/zlt-web.init"
+      - "ZLTApp/Resources/router/install.sh"
+      - "ZLTApp/build.sh"
+      - "ZLTApp/Sources/**"
+      - "README.md"
+      - ".gitignore"
+      - ".github/workflows/router-dashboard.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "web/**"
+      - "go.mod"
+      - "awg/zlt-web.init"
+      - "ZLTApp/Resources/router/install.sh"
+      - "ZLTApp/build.sh"
+      - "ZLTApp/Sources/**"
+      - "README.md"
+      - ".gitignore"
+      - ".github/workflows/router-dashboard.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: zlt-dashboard-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache: true
+      - name: Test dashboard and proxy parsers
+        run: go test ./...
+      - name: Vet dashboard
+        run: go vet ./...
+      - name: Check dashboard JavaScript
+        run: node --check web/static/app.js
+      - name: Build router binary
+        run: GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags="-s -w" -o /tmp/zlt-web-linux-arm64 ./web
+      - name: Check installer scripts
+        run: |
+          sh -n ZLTApp/Resources/router/install.sh
+          sh -n awg/zlt-web.init
+          bash -n ZLTApp/build.sh
+
+  mac-app:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache: true
+      - name: Fetch pinned sing-box payload
+        run: ./fetch-payload.sh
+      - name: Build universal Mac app with router dashboard
+        run: ./ZLTApp/build.sh
+      - name: Package build artifact
+        run: ditto -c -k --sequesterRsrc --keepParent "ZLTApp/ZLT X28.app" "ZLT-X28-router-dashboard-test.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZLT-X28-router-dashboard-test
+          path: ZLT-X28-router-dashboard-test.zip
+          retention-days: 14

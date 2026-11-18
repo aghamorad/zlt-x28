@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds "ZLT X28.app" — swiftc only, no Xcode project.
+# Builds "ZLT X28.app" — swiftc + Go, no Xcode project.
 # Run from anywhere:  ./build.sh
 set -euo pipefail
 
@@ -18,7 +18,18 @@ fi
 
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/router"
 
+echo "Building the router web dashboard (Go, linux/arm64)…"
+if ! command -v go >/dev/null 2>&1; then
+    echo "Go 1.22 or newer is required to build the router dashboard." >&2
+    echo "Install Go from https://go.dev/dl/ and run build.sh again." >&2
+    exit 1
+fi
+mkdir -p "$ROOT/build"
+(cd "$ROOT" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/zlt-web-linux-arm64 ./web)
+
 echo "Copying router payloads…"
+cp "$ROOT/build/zlt-web-linux-arm64"         "$APP/Contents/Resources/router/zlt-web"
+cp "$ROOT/awg/zlt-web.init"                  "$APP/Contents/Resources/router/zlt-web.init"
 cp "$ROOT/build/amneziawg-go-linux-arm64" "$APP/Contents/Resources/router/amneziawg-go"
 cp "$ROOT/build/awgctl-linux-arm64"        "$APP/Contents/Resources/router/awgctl"
 cp "$ROOT/awg/uapipush.linux-arm64"        "$APP/Contents/Resources/router/uapipush"

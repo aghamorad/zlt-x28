@@ -118,9 +118,29 @@ final class Provisioner {
         let verify = await RouterSSH.run(
             "ls -l /usr/bin/amneziawg-go /usr/bin/awgctl /usr/bin/uapipush "
             + "/usr/bin/dotbridge /usr/bin/vpn /usr/bin/vpn-keepalive "
-            + "/etc/init.d/amneziawg | awk '{print $NF}'", timeout: 25)
+            + "/etc/init.d/amneziawg /etc/init.d/singbox /etc/init.d/zlt-web | awk '{print $NF}'", timeout: 25)
         for line in verify.output.components(separatedBy: .newlines) where !line.isEmpty {
             publish("  installed: \(line)")
+        }
+        let dashboardCheck = await RouterSSH.run(
+            "test -s /data/zltx28/web/password && "
+            + "(test -x /data/zltx28/bin/zlt-web || test -x /usr/bin/zlt-web) && "
+            + "(wget -q -O /dev/null http://127.0.0.1:8080/ "
+            + "|| curl -fsS http://127.0.0.1:8080/ >/dev/null) && echo ZLT_WEB_OK",
+            timeout: 25)
+        guard dashboardCheck.output.contains("ZLT_WEB_OK") else {
+            throw ZLTError("The VPN engine installed, but the router dashboard did not start. "
+                           + "See the setup log and check the router's local service.")
+        }
+        let dashboardPassword = await RouterSSH.run(
+            "cat /data/zltx28/web/password 2>/dev/null", timeout: 10)
+        let webPassword = dashboardPassword.trimmed
+        if webPassword.count >= 20 {
+            publish("Web dashboard: http://192.168.70.1:8080")
+            publish("Dashboard password: \(webPassword)")
+            publish("Save this password. It is stored on the router and will not change on reinstall.")
+        } else {
+            publish("The VPN engine is installed, but the dashboard password could not be read.")
         }
         publish("The router is ready.")
     }

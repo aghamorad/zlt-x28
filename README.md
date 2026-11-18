@@ -22,6 +22,7 @@ to do before it does it.
 | **Router setup** | The one-time job: log in, install the engine, done. Safe to run again. |
 | **SIM & carrier** | Reads the SIM and offers **Optimize** — a measured band test using the known fast lanes for IranCell and MCI. |
 | **Health** | Press one button; it walks the whole path — router, engine, route, handshake, internet — and names the first thing that failed. |
+| **Web dashboard** | A password-protected control panel served directly by the router. Open it from any phone or computer on the X28 Wi-Fi, even when the Mac is switched off. |
 | **What it does** | The whole job in one place: what the app changes, what it never touches, what it needs, what it cannot do, and what it writes to the router and to this Mac. |
 
 Every screen also opens with one line stating its own boundary. If you want to know
@@ -38,6 +39,7 @@ and pick another. Nothing here needs a server or an account.
 - The router's **admin password** (the one for its web page). On most X28s it is
   `admin`, but if you changed it, use yours.
 - macOS **13 or newer**, Apple Silicon or Intel — the app is universal.
+- Go **1.22 or newer** only if you are building the app from source. The released app already contains the router-side dashboard binary.
 
 ## Install
 
@@ -55,11 +57,34 @@ The SHA-256 of the zip is published next to it, so you can check the download.
 1. **Router setup** — type the admin password and press the install button. The app
    copies its engine onto the router, gives it a startup hook so it survives a power
    cut, and installs its own SSH key. About a minute. You can repeat it safely.
-2. **VPN** — either paste a link, or drop in an AmneziaWG config.
-3. Switch it **on**. Wait for the page to say the router is carrying traffic — that is
+2. At the end of setup, the app prints the local dashboard address and a randomly
+   generated dashboard password in the setup log. Save that password.
+3. **VPN** — either paste a link, or drop in an AmneziaWG config.
+4. Switch it **on**. Wait for the page to say the router is carrying traffic — that is
    the app checking packets actually flow, not just that a process started.
-4. **SIM & carrier → Optimize** — optional, but it is the difference between "works"
+5. **SIM & carrier → Optimize** — optional, but it is the difference between "works"
    and "works at the speed your SIM can do".
+
+## The local web dashboard
+
+The setup process also installs a small Go web server on the router and enables it
+under `procd`, so it starts again after a reboot. Open
+[http://192.168.70.1:8080](http://192.168.70.1:8080) from a phone, tablet or computer
+connected to the X28 Wi-Fi. The dashboard runs on the router itself; the Mac app does
+not need to be open or even switched on.
+
+The dashboard can start and stop either VPN engine, restart a tunnel, switch saved
+AmneziaWG configs or sing-box links, import `.conf` files and proxy links, test the
+sing-box links, and move old configurations aside. It accepts VLESS, VMess, Trojan,
+Shadowsocks, Hysteria2 and SOCKS5 share links. On iPhone and iPad, Safari can save it
+as a Home Screen shortcut. Full PWA installation and offline operation are not enabled:
+the local dashboard uses HTTP, and browsers require trusted HTTPS for those features.
+
+The password is generated once and kept at `/data/zltx28/web/password` with root-only
+file permissions. Re-running setup preserves it. The server only accepts clients from
+the X28 LAN subnet (`192.168.70.0/24`) and uses a 12-hour browser session after login.
+The dashboard uses local HTTP, not HTTPS: use it only on your trusted, WPA-protected
+home Wi-Fi, and do not expose port 8080 to the internet.
 
 ## What "on" actually means
 
@@ -79,19 +104,21 @@ carrying traffic.
 
 ## Building from source
 
-There is no Xcode project, no package manager and no dependencies to install:
+There is no Xcode project. The Mac app is compiled with Swift; the router dashboard
+is compiled as a static Linux/ARM64 Go binary. Install Go 1.22 or newer, then run:
 
 ```bash
 ./fetch-payload.sh     # the sing-box router binary (checked against a known hash)
-./ZLTApp/build.sh      # compiles arm64 + x86_64, lipos, ad-hoc signs
+./ZLTApp/build.sh      # builds the dashboard, compiles arm64 + x86_64, lipos, ad-hoc signs
 ```
 
 `build.sh` writes `ZLTApp/ZLT X28.app`. The release workflow does exactly this on a
 GitHub macOS runner and attaches the universal zip to the tag, so a release is
 reproducible from the repo.
 
-Router-side files live in `awg/`: the `vpn` shell tool the app drives over SSH, the
-procd init scripts, and the two small Go helpers (`uapipush`, `dotbridge`).
+Router-side files live in `awg/`: the `vpn` shell tool, its procd init scripts, the
+dashboard service, and the two Go helpers (`uapipush`, `dotbridge`). Dashboard source
+and its mobile web interface live in `web/`; its Go tests run in the dashboard CI workflow.
 
 ## Limitations, stated plainly
 
