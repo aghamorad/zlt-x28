@@ -103,19 +103,21 @@ carrying traffic.
 
 ## Building from source
 
-There is no Xcode project, no package manager and no dependencies to install:
+There is no Xcode project. The Mac app is compiled with Swift; the router dashboard
+is compiled as a static Linux/ARM64 Go binary. Install Go 1.22 or newer, then run:
 
 ```bash
 ./fetch-payload.sh     # the sing-box router binary (checked against a known hash)
-./ZLTApp/build.sh      # compiles arm64 + x86_64, lipos, ad-hoc signs
+./ZLTApp/build.sh      # builds the dashboard, compiles arm64 + x86_64, lipos, ad-hoc signs
 ```
 
 `build.sh` writes `ZLTApp/ZLT X28.app`. The release workflow does exactly this on a
 GitHub macOS runner and attaches the universal zip to the tag, so a release is
 reproducible from the repo.
 
-Router-side files live in `awg/`: the `vpn` shell tool the app drives over SSH, the
-procd init scripts, and the two small Go helpers (`uapipush`, `dotbridge`).
+Router-side files live in `awg/`: the `vpn` shell tool, its procd init scripts, the
+dashboard service, and the two Go helpers (`uapipush`, `dotbridge`). Dashboard source
+and its mobile web interface live in `web/`; its Go tests run in the dashboard CI workflow.
 
 ## Limitations, stated plainly
 
