@@ -76,8 +76,9 @@ not need to be open or even switched on.
 The dashboard can start and stop either VPN engine, restart a tunnel, switch saved
 AmneziaWG configs or sing-box links, import `.conf` files and proxy links, test the
 sing-box links, and move old configurations aside. It accepts VLESS, VMess, Trojan,
-Shadowsocks, Hysteria2 and SOCKS5 share links. It is also installable from the browser's
-"Add to Home Screen" action.
+Shadowsocks, Hysteria2 and SOCKS5 share links. On iPhone and iPad, Safari can save it
+as a Home Screen shortcut. Full PWA installation and offline operation are not enabled:
+the local dashboard uses HTTP, and browsers require trusted HTTPS for those features.
 
 The password is generated once and kept at `/data/zltx28/web/password` with root-only
 file permissions. Re-running setup preserves it. The server only accepts clients from
