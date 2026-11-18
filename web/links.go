@@ -15,6 +15,7 @@ import (
 
 type proxyLink struct {
 	name string
+	label string
 	raw string
 	out map[string]any
 }
@@ -58,6 +59,7 @@ func parseLink(raw string)(*proxyLink,error){
 	scheme:=strings.ToLower(u.Scheme);host:=u.Hostname();port,_:=strconv.Atoi(u.Port())
 	if host==""||port<1||port>65535{return nil,errors.New("link needs a hostname and valid port")}
 	q:=u.Query();password:="";if u.User!=nil{password,_=u.User.Password();if password==""{password=u.User.Username()}}
+	label:=q.Get("remarks");if label==""{label=u.Fragment};if label==""{label=host+":"+strconv.Itoa(port)}
 	out:=map[string]any{"tag":"proxy","server":host,"server_port":port}
 	switch scheme{
 	case "vless":
@@ -77,7 +79,7 @@ func parseLink(raw string)(*proxyLink,error){
 	default:return nil,fmt.Errorf("unsupported scheme %s",scheme)
 	}
 	name:=safeLinkName(scheme+"-"+host+"-"+strconv.Itoa(port))
-	return &proxyLink{name:name,raw:raw,out:out},nil
+	return &proxyLink{name:name,label:label,raw:raw,out:out},nil
 }
 func parseVMess(raw string)(*proxyLink,error){
 	payload:=raw[len("vmess://"):];b,e:=decode64(payload);if e!=nil{return nil,errors.New("invalid VMess base64")}
@@ -90,7 +92,8 @@ func parseVMess(raw string)(*proxyLink,error){
 	switch network{case "ws":tr:=map[string]any{"type":"ws","path":path};if h!=""{tr["headers"]=map[string]string{"Host":h}};out["transport"]=tr
 	case "grpc":out["transport"]=map[string]any{"type":"grpc","service_name":path}
 	case "h2","http":hosts:=[]string{host};if h!=""{hosts=[]string{h}};out["transport"]=map[string]any{"type":"http","path":path,"host":hosts}}
-	return &proxyLink{name:safeLinkName("vmess-"+host+"-"+strconv.Itoa(port)),raw:raw,out:out},nil
+	label:=first(get("ps"),host+":"+strconv.Itoa(port))
+	return &proxyLink{name:safeLinkName("vmess-"+host+"-"+strconv.Itoa(port)),label:label,raw:raw,out:out},nil
 }
 func parseSS(raw string)(*proxyLink,error){
 	body:=raw[len("ss://"):];label:="";if i:=strings.Index(body,"#");i>=0{label,_=url.QueryUnescape(body[i+1:]);body=body[:i]};if i:=strings.Index(body,"?");i>=0{body=body[:i]}
@@ -98,8 +101,8 @@ func parseSS(raw string)(*proxyLink,error){
 	if i:=strings.LastIndex(body,"@");i>=0{creds=body[:i];server=body[i+1:];b,e:=decode64(creds);if e==nil{creds=string(b)}else{creds,_=url.QueryUnescape(creds)}}else{b,e:=decode64(body);if e!=nil{return nil,errors.New("invalid Shadowsocks base64")};i=strings.LastIndex(string(b),"@");if i<0{return nil,errors.New("invalid Shadowsocks payload")};creds=string(b[:i]);server=string(b[i+1:])}
 	i:=strings.Index(creds,":");if i<1{return nil,errors.New("invalid Shadowsocks credentials")};method,password:=creds[:i],creds[i+1:]
 	u,e:=url.Parse("//"+server);if e!=nil{return nil,e};host:=u.Hostname();port,_:=strconv.Atoi(u.Port());if host==""||port<1||port>65535{return nil,errors.New("Shadowsocks needs host and port")}
-	if label==""{label=host};_ = label
-	return &proxyLink{name:safeLinkName("ss-"+host+"-"+strconv.Itoa(port)),raw:raw,out:map[string]any{"type":"shadowsocks","tag":"proxy","server":host,"server_port":port,"method":method,"password":password}},nil
+	if label==""{label=host+":"+strconv.Itoa(port)}
+	return &proxyLink{name:safeLinkName("ss-"+host+"-"+strconv.Itoa(port)),label:label,raw:raw,out:map[string]any{"type":"shadowsocks","tag":"proxy","server":host,"server_port":port,"method":method,"password":password}},nil
 }
 func tlsConfig(q url.Values,host string)map[string]any{
 	security:=strings.ToLower(q.Get("security"));if security!="tls"&&security!="xtls"&&security!="reality"{return nil}
