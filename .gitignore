@@ -14,3 +14,5 @@
 !/awg/
 !/build/
 !/fetch-payload.sh
+!/go.mod
+!/web/
