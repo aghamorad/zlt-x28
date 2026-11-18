@@ -118,9 +118,19 @@ final class Provisioner {
         let verify = await RouterSSH.run(
             "ls -l /usr/bin/amneziawg-go /usr/bin/awgctl /usr/bin/uapipush "
             + "/usr/bin/dotbridge /usr/bin/vpn /usr/bin/vpn-keepalive "
-            + "/etc/init.d/amneziawg | awk '{print $NF}'", timeout: 25)
+            + "/etc/init.d/amneziawg /etc/init.d/singbox /etc/init.d/zlt-web | awk '{print $NF}'", timeout: 25)
         for line in verify.output.components(separatedBy: .newlines) where !line.isEmpty {
             publish("  installed: \(line)")
+        }
+        let dashboardPassword = await RouterSSH.run(
+            "cat /data/zltx28/web/password 2>/dev/null", timeout: 10)
+        let webPassword = dashboardPassword.trimmed
+        if webPassword.count >= 20 {
+            publish("Web dashboard: http://192.168.70.1:8080")
+            publish("Dashboard password: \(webPassword)")
+            publish("Save this password. It is stored on the router and will not change on reinstall.")
+        } else {
+            publish("The VPN engine is installed, but the dashboard password could not be read.")
         }
         publish("The router is ready.")
     }
