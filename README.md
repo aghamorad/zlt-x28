@@ -22,6 +22,7 @@ to do before it does it.
 | **Router setup** | The one-time job: log in, install the engine, done. Safe to run again. |
 | **SIM & carrier** | Reads the SIM and offers **Optimize** — a measured band test using the known fast lanes for IranCell and MCI. |
 | **Health** | Press one button; it walks the whole path — router, engine, route, handshake, internet — and names the first thing that failed. |
+| **Web dashboard** | A password-protected control panel served directly by the router. Open it from any phone or computer on the X28 Wi-Fi, even when the Mac is switched off. |
 | **What it does** | The whole job in one place: what the app changes, what it never touches, what it needs, what it cannot do, and what it writes to the router and to this Mac. |
 
 Every screen also opens with one line stating its own boundary. If you want to know
@@ -38,6 +39,7 @@ and pick another. Nothing here needs a server or an account.
 - The router's **admin password** (the one for its web page). On most X28s it is
   `admin`, but if you changed it, use yours.
 - macOS **13 or newer**, Apple Silicon or Intel — the app is universal.
+- Go **1.22 or newer** only if you are building the app from source. The released app already contains the router-side dashboard binary.
 
 ## Install
 
@@ -58,8 +60,30 @@ The SHA-256 of the zip is published next to it, so you can check the download.
 2. **VPN** — either paste a link, or drop in an AmneziaWG config.
 3. Switch it **on**. Wait for the page to say the router is carrying traffic — that is
    the app checking packets actually flow, not just that a process started.
-4. **SIM & carrier → Optimize** — optional, but it is the difference between "works"
+4. At the end of setup, the app prints the local dashboard address and a randomly
+   generated dashboard password in the setup log. Save that password.
+5. **SIM & carrier → Optimize** — optional, but it is the difference between "works"
    and "works at the speed your SIM can do".
+
+## The local web dashboard
+
+The setup process also installs a small Go web server on the router and enables it
+under \`procd\`, so it starts again after a reboot. Open
+[http://192.168.70.1:8080](http://192.168.70.1:8080) from a phone, tablet or computer
+connected to the X28 Wi-Fi. The dashboard runs on the router itself; the Mac app does
+not need to be open or even switched on.
+
+The dashboard can start and stop either VPN engine, restart a tunnel, switch saved
+AmneziaWG configs or sing-box links, import \`.conf\` files and proxy links, test the
+sing-box links, and move old configurations aside. It accepts VLESS, VMess, Trojan,
+Shadowsocks, Hysteria2 and SOCKS5 share links. It is also installable from the browser's
+"Add to Home Screen" action.
+
+The password is generated once and kept at \`/data/zltx28/web/password\` with root-only
+file permissions. Re-running setup preserves it. The server only accepts clients from
+the X28 LAN subnet (\`192.168.70.0/24\`) and uses a 12-hour browser session after login.
+The dashboard uses local HTTP, not HTTPS: use it only on your trusted, WPA-protected
+home Wi-Fi, and do not expose port 8080 to the internet.
 
 ## What "on" actually means
 
