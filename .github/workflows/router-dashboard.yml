@@ -10,6 +10,15 @@ on:
       - "ZLTApp/Resources/router/install.sh"
       - "ZLTApp/build.sh"
       - ".github/workflows/router-dashboard.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "web/**"
+      - "go.mod"
+      - "awg/zlt-web.init"
+      - "ZLTApp/Resources/router/install.sh"
+      - "ZLTApp/build.sh"
+      - ".github/workflows/router-dashboard.yml"
   workflow_dispatch:
 
 permissions:
