@@ -53,13 +53,6 @@ jobs:
           sh -n awg/zlt-web.init
           bash -n ZLTApp/build.sh
 
-  swift-syntax:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Parse Mac application sources
-        run: swiftc -frontend -parse ZLTApp/Sources/*.swift
-
   mac-app:
     runs-on: macos-26
     steps:
