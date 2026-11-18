@@ -138,7 +138,7 @@ func (a *app) status(w http.ResponseWriter,r *http.Request){
 	awgOn:=strings.Contains(awg,"daemon   : running")&&strings.Contains(awg,"route    : default dev awg0")
 	sbOn:=strings.Contains(sb,"daemon   : running")&&strings.Contains(sb,"route    : default dev sb0")
 	engine:="off";if awgOn{engine="awg"}else if sbOn{engine="sb"}
-	links:=[]map[string]string{};for _,n:=range lines(lnk){b,_:=os.ReadFile("/data/zltx28/singbox/links/"+n+".link");label:=strings.TrimSpace(string(b));if label==""{label=n};links=append(links,map[string]string{"name":n,"label":label})}
+	links:=[]map[string]string{};for _,n:=range lines(lnk){b,_:=os.ReadFile("/data/zltx28/singbox/links/"+n+".link");raw:=strings.TrimSpace(string(b));label:=n;if p,e:=parseLink(raw);e==nil&&p.label!=""{label=p.label};links=append(links,map[string]string{"name":n,"label":label})}
 	exit:=line(awg,"exit IP  : ");if engine=="sb"{exit=line(sb,"exit IP  : ")}
 	write(w,200,map[string]any{"engine":engine,"vpnOn":awgOn||sbOn,"awgOn":awgOn,"sbOn":sbOn,"awgStatus":strings.TrimSpace(awg),"sbStatus":strings.TrimSpace(sb),"configs":lines(cfg),"links":links,"exitIP":exit})
 }
