@@ -141,5 +141,17 @@ ln -sf "$PROGRAM_DIR/sing-box" /usr/bin/sing-box
 place singbox.init /etc/init.d/singbox 755 || exit 1
 mkdir -p /data/zltx28/singbox/links /data/zltx28/singbox/trash
 
+echo "Installing the local web dashboard…"
+place zlt-web "$PROGRAM_DIR/zlt-web" 755 || exit 1
+if [ "$PROGRAM_DIR" != "/usr/bin" ]; then
+    ln -sf "$PROGRAM_DIR/zlt-web" /usr/bin/zlt-web
+fi
+place zlt-web.init /etc/init.d/zlt-web 755 || exit 1
+mkdir -p /data/zltx28/web
+chmod 700 /data/zltx28/web
+"$PROGRAM_DIR/zlt-web" -init-auth -auth-file /data/zltx28/web/password
+/etc/init.d/zlt-web enable || exit 1
+/etc/init.d/zlt-web restart || exit 1
+
 sync
 echo "ZLT_INSTALL_OK"
