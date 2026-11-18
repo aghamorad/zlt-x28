@@ -5,10 +5,12 @@ START=98
 STOP=11
 
 start_service() {
-    [ -x /data/zltx28/bin/zlt-web ] || return 0
+    WEB_BIN=/data/zltx28/bin/zlt-web
+    [ -x "$WEB_BIN" ] || WEB_BIN=/usr/bin/zlt-web
+    [ -x "$WEB_BIN" ] || return 0
     [ -s /data/zltx28/web/password ] || return 0
     procd_open_instance
-    procd_set_param command /data/zltx28/bin/zlt-web \
+    procd_set_param command "$WEB_BIN" \
         -addr 0.0.0.0:8080 \
         -auth-file /data/zltx28/web/password \
         -lan-cidr 192.168.70.0/24
