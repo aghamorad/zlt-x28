@@ -37,8 +37,9 @@ struct CarrierInfo: Equatable {
                  + "mode are managed automatically; the app measures before changing "
                  + "anything."
         case "Rightel":
-            return "Rightel. The SIM supplies the APN. If data stops working after "
-                 + "switching SIMs, reset the APN in the router's own panel."
+            return "Rightel. The SIM supplies the APN and roams onto MCI's antennas "
+                 + "automatically where MCI has stronger 4G/5G coverage. Keep roaming "
+                 + "enabled on the SIM so it can use MCI's towers seamlessly."
         default:
             return "This app does not recognise the operator name. It will still work; "
                  + "the carrier screen simply has less to say about it."
@@ -330,12 +331,13 @@ enum BandPlan {
 /// than from a guess. Band numbers are the carriers' own holdings; the app
 /// still only ever pins to a band it has seen a cell on.
 enum CarrierProfile: String {
-    case irancell, mci, other
+    case irancell, mci, rightel, other
 
     static func of(_ info: CarrierInfo) -> CarrierProfile {
         switch info.shortOperator {
         case "Irancell": return .irancell
         case "MCI": return .mci
+        case "Rightel": return .rightel
         default: return .other
         }
     }
@@ -344,6 +346,7 @@ enum CarrierProfile: String {
         switch self {
         case .irancell: return "Irancell"
         case .mci: return "MCI"
+        case .rightel: return "Rightel (MCI towers)"
         case .other: return "this SIM"
         }
     }
@@ -352,14 +355,14 @@ enum CarrierProfile: String {
     var lteBands: [Int] {
         switch self {
         case .irancell: return [3, 7, 1, 8]
-        case .mci: return [3, 1, 8, 7]
+        case .mci, .rightel: return [3, 1, 8, 7]
         case .other: return [3, 7, 1, 8]
         }
     }
 
     var nrBands: [Int] {
         switch self {
-        case .irancell, .mci: return [78, 41, 40]
+        case .irancell, .mci, .rightel: return [78, 41, 40]
         case .other: return [78, 41, 40, 1, 3, 28]
         }
     }
@@ -375,6 +378,10 @@ enum CarrierProfile: String {
             return "MCI's 4G sits on band 3 (1800 MHz) with bands 1 and 8 as "
                  + "fallbacks, and its 5G is n78 (3500 MHz) riding on an LTE anchor. "
                  + "LTE band 3 plus n78 is the fast lane."
+        case .rightel:
+            return "Rightel connects through MCI's antennas for its fastest 4G/5G "
+                 + "lanes: LTE band 3 (1800 MHz) with bands 1 and 8 as fallbacks, "
+                 + "plus n78 (3500 MHz) 5G when available."
         case .other:
             return "The fast lane on any carrier is an LTE anchor plus a 5G carrier; "
                  + "when a 5G cell is visible, pinning to it usually beats a 4G-only lock."
@@ -384,7 +391,7 @@ enum CarrierProfile: String {
     /// The thing that most often goes wrong and is worth saying plainly.
     var warning: String {
         switch self {
-        case .irancell, .mci:
+        case .irancell, .mci, .rightel:
             return "A 5G lock without an LTE anchor cannot register on these "
                  + "networks, so the app never tries it."
         case .other:

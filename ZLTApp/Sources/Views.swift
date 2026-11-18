@@ -122,13 +122,12 @@ struct RootView: View {
         var body: some View {
             Button(action: action) {
                 Label(item.title, systemImage: item.icon)
-                    .font(.body)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 7)
-                    .padding(.horizontal, 8)
+                    .font(.system(size: 15, weight: selected ? .semibold : .regular))
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .padding(.horizontal, 12)
                     .contentShape(Rectangle())
                     .background(
-                        RoundedRectangle(cornerRadius: 6)
+                        RoundedRectangle(cornerRadius: 8)
                             .fill(selected ? Color.accentColor : Color.clear)
                     )
                     .foregroundStyle(selected ? Color.white : Color.primary)
@@ -196,6 +195,10 @@ struct HomeView: View {
 
             hero
 
+            if model.reach == .reachable && model.provisioned {
+                quickActionsRow
+            }
+
             if model.reach == .unreachable {
                 InfoBox(title: "This Mac cannot see the router",
                         text: "The app talks to the router at 192.168.70.1. Join the X28's "
@@ -238,14 +241,24 @@ struct HomeView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 12)
-                Toggle("", isOn: toggle)
-                    .labelsHidden()
-                    .toggleStyle(.switch)
-                    .controlSize(.large)
+                VStack(alignment: .trailing, spacing: 8) {
+                    Button {
+                        Task {
+                            if model.vpnOn { await model.turnOff() } else { await model.turnOn() }
+                        }
+                    } label: {
+                        Label(model.vpnOn ? "Turn VPN Off" : "Turn VPN On",
+                              systemImage: model.vpnOn ? "power" : "lock.shield.fill")
+                            .font(.system(size: 15, weight: .semibold))
+                            .frame(minWidth: 150, minHeight: 46)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(model.vpnOn ? .red : .green)
                     .disabled(!model.provisioned || model.reach != .reachable
                               || model.busy != nil || model.setupRunning)
                     .help(model.provisioned ? "Turn the VPN on or off"
                                             : "Set up the router first")
+                }
             }
 
             Divider()
@@ -312,6 +325,29 @@ struct HomeView: View {
                 Text(value).font(.callout.weight(.medium)).lineLimit(1)
             }
         }
+    }
+
+    private var quickActionsRow: some View {
+        HStack(spacing: 12) {
+            quickButton(title: "Switch or Paste VPN", icon: "lock.shield") {
+                section = .vpn
+            }
+            quickButton(title: "Carrier & Speed", icon: "antenna.radiowaves.left.and.right") {
+                section = .carrier
+            }
+            quickButton(title: "Check Connection", icon: "stethoscope") {
+                section = .health
+            }
+        }
+    }
+
+    private func quickButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: icon)
+                .font(.system(size: 14, weight: .medium))
+                .frame(maxWidth: .infinity, minHeight: 46)
+        }
+        .buttonStyle(.bordered)
     }
 
     private var setupBanner: some View {
@@ -686,19 +722,39 @@ struct VPNView: View {
                     .font(.callout.monospaced())
                     .lineLimit(3...6)
 
-                HStack {
+                HStack(spacing: 10) {
                     Text("One link per line. Paste as many as you like — the router "
                          + "keeps each one as its own tunnel.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button {
+                        if let raw = NSPasteboard.general.string(forType: .string) {
+                            let cleaned = raw
+                                .trimmingCharacters(in: .whitespacesAndNewlines)
+                                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+                            if !cleaned.isEmpty {
+                                pasted = pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                    ? cleaned
+                                    : pasted + "\n" + cleaned
+                            }
+                        }
+                    } label: {
+                        Label("Paste from Clipboard", systemImage: "doc.on.clipboard")
+                            .frame(minHeight: 36)
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(model.busy != nil)
+
+                    Button {
                         let text = pasted
                         pasted = ""
                         Task { await model.importLinks(text) }
                     } label: {
                         Label("Add links", systemImage: "plus")
+                            .frame(minHeight: 36)
                     }
+                    .buttonStyle(.borderedProminent)
                     .disabled(pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                               || model.busy != nil)
                 }
