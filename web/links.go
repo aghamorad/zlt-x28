@@ -72,7 +72,7 @@ func parseLink(raw string)(*proxyLink,error){
 		if tr:=transport(q);tr!=nil{out["transport"]=tr}
 	case "hysteria2","hy2":
 		if password==""{return nil,errors.New("Hysteria2 password missing")};out["type"]="hysteria2";out["password"]=password
-		tls:=tlsConfig(q,host);if tls==nil{tls=map[string]any{"enabled":true,"server_name":host}};out["tls"]=tls
+		tls:=tlsConfig(q,host);if tls==nil{tls=map[string]any{"enabled":true,"server_name":first(q.Get("sni"),q.Get("peer"),host)}};out["tls"]=tls
 		if obfs:=q.Get("obfs");obfs!=""{out["obfs"]=map[string]any{"type":obfs,"password":q.Get("obfs-password")}}
 	case "socks","socks5":
 		out["type"]="socks";out["version"]="5";if u.User!=nil{out["username"]=u.User.Username();if p,ok:=u.User.Password();ok{out["password"]=p}}
