@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type proxyLink struct {
@@ -41,6 +42,12 @@ func importLinks(text string) ([]string, []string, error) {
 		added=append(added,name)
 	}
 	if len(added)==0&&len(skipped)>0{return added,skipped,errors.New("no supported links found: VLESS, VMess, Trojan, Shadowsocks, Hysteria2 and SOCKS5")}
+	if len(added)>0 {
+		active,err:=os.ReadFile("/data/zltx28/singbox/active_name")
+		if err!=nil||strings.TrimSpace(string(active))==""||strings.TrimSpace(string(active))=="-" {
+			_,_ = run(30*time.Second,"sb","use",added[0])
+		}
+	}
 	return added,skipped,nil
 }
 func exists(p string)bool{_,e:=os.Stat(p);return e==nil}
