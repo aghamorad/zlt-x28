@@ -57,11 +57,11 @@ The SHA-256 of the zip is published next to it, so you can check the download.
 1. **Router setup** — type the admin password and press the install button. The app
    copies its engine onto the router, gives it a startup hook so it survives a power
    cut, and installs its own SSH key. About a minute. You can repeat it safely.
-2. **VPN** — either paste a link, or drop in an AmneziaWG config.
-3. Switch it **on**. Wait for the page to say the router is carrying traffic — that is
-   the app checking packets actually flow, not just that a process started.
-4. At the end of setup, the app prints the local dashboard address and a randomly
+2. At the end of setup, the app prints the local dashboard address and a randomly
    generated dashboard password in the setup log. Save that password.
+3. **VPN** — either paste a link, or drop in an AmneziaWG config.
+4. Switch it **on**. Wait for the page to say the router is carrying traffic — that is
+   the app checking packets actually flow, not just that a process started.
 5. **SIM & carrier → Optimize** — optional, but it is the difference between "works"
    and "works at the speed your SIM can do".
 
