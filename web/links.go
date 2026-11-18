@@ -68,7 +68,7 @@ func parseLink(raw string)(*proxyLink,error){
 		if tls:=tlsConfig(q,host);tls!=nil{out["tls"]=tls};if tr:=transport(q);tr!=nil{out["transport"]=tr}
 	case "trojan":
 		if password==""{return nil,errors.New("Trojan password missing")};out["type"]="trojan";out["password"]=password
-		tls:=tlsConfig(q,host);if tls==nil{tls=map[string]any{"enabled":true,"server_name":host}};out["tls"]=tls
+		tls:=tlsConfig(q,host);if tls==nil{tls=map[string]any{"enabled":true,"server_name":first(q.Get("sni"),q.Get("peer"),host)}};out["tls"]=tls
 		if tr:=transport(q);tr!=nil{out["transport"]=tr}
 	case "hysteria2","hy2":
 		if password==""{return nil,errors.New("Hysteria2 password missing")};out["type"]="hysteria2";out["password"]=password
