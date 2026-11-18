@@ -103,7 +103,7 @@ func (a *app) static(w http.ResponseWriter,r *http.Request) {
 func (a *app) login(w http.ResponseWriter,r *http.Request) {
 	if !originOK(r){fail(w,403,"request origin rejected");return}
 	ip:=clientIP(r);a.mu.Lock();now:=time.Now();old:=a.attempts[ip][:0];for _,t:=range a.attempts[ip]{if now.Sub(t)<time.Minute{old=append(old,t)}};if len(old)>=6{a.attempts[ip]=old;a.mu.Unlock();fail(w,429,"too many attempts; wait one minute");return};a.attempts[ip]=append(old,now);a.mu.Unlock()
-	var b struct{Password string \`json:"password"\`};if !decode(w,r,&b){return}
+	var b struct{Password string `json:"password"`};if !decode(w,r,&b){return}
 	x,y:=sha256.Sum256([]byte(b.Password)),sha256.Sum256([]byte(a.password));if subtle.ConstantTimeCompare(x[:],y[:])!=1{fail(w,401,"incorrect password");return}
 	raw:=make([]byte,32);if _,err:=rand.Read(raw);err!=nil{fail(w,500,"could not create session");return};token:=hex.EncodeToString(raw)
 	a.mu.Lock();a.sessions[token]=time.Now().Add(12*time.Hour);a.mu.Unlock()
@@ -143,12 +143,12 @@ func (a *app) status(w http.ResponseWriter,r *http.Request){
 	write(w,200,map[string]any{"engine":engine,"vpnOn":awgOn||sbOn,"awgOn":awgOn,"sbOn":sbOn,"awgStatus":strings.TrimSpace(awg),"sbStatus":strings.TrimSpace(sb),"configs":lines(cfg),"links":links,"exitIP":exit})
 }
 func (a *app) vpn(w http.ResponseWriter,r *http.Request){
-	var b struct{Engine string \`json:"engine"\`;Action string \`json:"action"\`};if !decode(w,r,&b){return}
+	var b struct{Engine string `json:"engine"`;Action string `json:"action"`};if !decode(w,r,&b){return}
 	if (b.Engine!="awg"&&b.Engine!="sb")||(b.Action!="on"&&b.Action!="off"&&b.Action!="restart"){fail(w,400,"unsupported engine or action");return}
 	out,err:=run(150*time.Second,b.Engine,b.Action);if err!=nil{write(w,502,map[string]any{"error":err.Error(),"output":out});return};write(w,200,map[string]any{"ok":true,"output":strings.TrimSpace(out)})
 }
 func (a *app) selectConfig(w http.ResponseWriter,r *http.Request){
-	var b struct{Engine string \`json:"engine"\`;Name string \`json:"name"\`};if !decode(w,r,&b){return}
+	var b struct{Engine string `json:"engine"`;Name string `json:"name"`};if !decode(w,r,&b){return}
 	if (b.Engine!="awg"&&b.Engine!="sb")||!validName.MatchString(b.Name){fail(w,400,"invalid engine or name");return}
 	out,err:=run(30*time.Second,b.Engine,"use",b.Name);if err!=nil{write(w,502,map[string]any{"error":err.Error(),"output":out});return}
 	st,_:=run(15*time.Second,b.Engine,"status","quick");if strings.Contains(st,"daemon   : running"){out,err=run(150*time.Second,b.Engine,"restart");if err!=nil{write(w,502,map[string]any{"error":err.Error(),"output":out});return}}
@@ -156,7 +156,7 @@ func (a *app) selectConfig(w http.ResponseWriter,r *http.Request){
 }
 func atomicWrite(path string,b []byte,mode os.FileMode)error{if err:=os.MkdirAll(filepath.Dir(path),0700);err!=nil{return err};tmp:=path+".tmp";if err:=os.WriteFile(tmp,b,mode);err!=nil{return err};if err:=os.Chmod(tmp,mode);err!=nil{return err};return os.Rename(tmp,path)}
 func (a *app) importConfig(w http.ResponseWriter,r *http.Request){
-	var b struct{Kind string \`json:"kind"\`;Name string \`json:"name"\`;Content string \`json:"content"\`;Text string \`json:"text"\`};if !decode(w,r,&b){return}
+	var b struct{Kind string `json:"kind"`;Name string `json:"name"`;Content string `json:"content"`;Text string `json:"text"`};if !decode(w,r,&b){return}
 	if b.Kind=="awg"{
 		if !validName.MatchString(b.Name){fail(w,400,"name must use letters, numbers, _ or -");return};if len(b.Content)<30||!strings.Contains(b.Content,"[Interface]")||!strings.Contains(b.Content,"[Peer]"){fail(w,400,"invalid WireGuard/AmneziaWG .conf file");return}
 		path:="/etc/amneziawg/awg0.conf."+b.Name;if _,e:=os.Stat(path);e==nil{fail(w,409,"that config name already exists");return}
@@ -172,10 +172,10 @@ func (a *app) importConfig(w http.ResponseWriter,r *http.Request){
 	fail(w,400,"kind must be awg or links")
 }
 func (a *app) removeConfig(w http.ResponseWriter,r *http.Request){
-	var b struct{Engine string \`json:"engine"\`;Name string \`json:"name"\`};if !decode(w,r,&b){return};if !validName.MatchString(b.Name){fail(w,400,"invalid name");return}
+	var b struct{Engine string `json:"engine"`;Name string `json:"name"`};if !decode(w,r,&b){return};if !validName.MatchString(b.Name){fail(w,400,"invalid name");return}
 	if b.Engine=="sb"{out,err:=run(60*time.Second,"sb","remove",b.Name);if err!=nil{write(w,502,map[string]any{"error":err.Error(),"output":out});return};write(w,200,map[string]any{"ok":true,"output":out});return}
 	if b.Engine=="awg"{p:="/etc/amneziawg/awg0.conf."+b.Name;if _,err:=os.Stat(p);err!=nil{fail(w,404,"config not found");return};if err:=os.Rename(p,p+fmt.Sprintf(".disabled-%d",time.Now().Unix()));err!=nil{fail(w,500,err.Error());return};write(w,200,map[string]any{"ok":true});return}
 	fail(w,400,"unknown engine")
 }
 func (a *app) testAll(w http.ResponseWriter,r *http.Request){out,err:=run(13*time.Minute,"sb","testall");if err!=nil{write(w,502,map[string]any{"error":err.Error(),"output":out});return};results:=[]map[string]string{};for _,v:=range strings.Split(out,"\n"){if strings.HasPrefix(v,"RESULT|"){p:=strings.Split(v,"|");if len(p)>=5{results=append(results,map[string]string{"name":p[1],"code":p[2],"latencyMs":p[3],"bytesPerSecond":p[4]})}}};write(w,200,map[string]any{"ok":true,"results":results})}
-func (a *app) testOne(w http.ResponseWriter,r *http.Request){var b struct{Name string \`json:"name"\`};if !decode(w,r,&b){return};if !validName.MatchString(b.Name){fail(w,400,"invalid name");return};out,err:=run(120*time.Second,"sb","test",b.Name);if err!=nil{write(w,502,map[string]any{"error":err.Error(),"output":out});return};write(w,200,map[string]any{"ok":true,"output":out})}
+func (a *app) testOne(w http.ResponseWriter,r *http.Request){var b struct{Name string `json:"name"`};if !decode(w,r,&b){return};if !validName.MatchString(b.Name){fail(w,400,"invalid name");return};out,err:=run(120*time.Second,"sb","test",b.Name);if err!=nil{write(w,502,map[string]any{"error":err.Error(),"output":out});return};write(w,200,map[string]any{"ok":true,"output":out})}
