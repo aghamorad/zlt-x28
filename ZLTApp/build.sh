@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds "ZLT X28.app" — swiftc only, no Xcode project.
+# Builds "ZLT X28.app" — swiftc + Go, no Xcode project.
 # Run from anywhere:  ./build.sh
 set -euo pipefail
 
@@ -24,6 +24,7 @@ if ! command -v go >/dev/null 2>&1; then
     echo "Install Go from https://go.dev/dl/ and run build.sh again." >&2
     exit 1
 fi
+mkdir -p "$ROOT/build"
 (cd "$ROOT" && GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags='-s -w' -o build/zlt-web-linux-arm64 ./web)
 
 echo "Copying router payloads…"
