@@ -59,3 +59,23 @@ jobs:
       - uses: actions/checkout@v4
       - name: Parse Mac application sources
         run: swiftc -frontend -parse ZLTApp/Sources/*.swift
+
+  mac-app:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.x"
+          cache: true
+      - name: Fetch pinned sing-box payload
+        run: ./fetch-payload.sh
+      - name: Build universal Mac app with router dashboard
+        run: ./ZLTApp/build.sh
+      - name: Package build artifact
+        run: ditto -c -k --sequesterRsrc --keepParent "ZLTApp/ZLT X28.app" "ZLT-X28-router-dashboard-test.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZLT-X28-router-dashboard-test
+          path: ZLT-X28-router-dashboard-test.zip
+          retention-days: 14
