@@ -27,6 +27,10 @@ on:
       - ".github/workflows/router-dashboard.yml"
   workflow_dispatch:
 
+concurrency:
+  group: zlt-dashboard-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
