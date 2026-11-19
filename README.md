@@ -10,6 +10,13 @@ to do before it does it.
 
 ![The app's icon: a Windows-95-style window with a padlock](ZLTApp/icon-preview.png)
 
+## One-Click Downloads (Mac & Android Phone)
+
+| Device | Download | What it does |
+| --- | --- | --- |
+| **Android Phone** | **[Download ZLT-X28.apk (21 KB)](https://raw.githubusercontent.com/aghamorad/zlt-x28/main/AndroidApp/ZLT-X28.apk)** | Connect your Android phone to the ZLT X28 Wi-Fi (`192.168.70.1`) and tap **Fix My ZLT X28 Now** to fix the broken empty Auto-APN defect (`mcinet`), turn on Auto-Dial, clear stuck band locks, and read live signal/WAN IP. |
+| **Mac (Apple Silicon & Intel)** | **[Download ZLT-X28-v1.2.0-universal.zip](../../releases/latest)** | Full macOS app: one-switch router-wide VPN (AmneziaWG & sing-box share links), band speed benchmarking, and connection health diagnostics. |
+
 ---
 
 ## What it does

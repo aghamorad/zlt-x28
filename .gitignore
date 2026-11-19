@@ -14,3 +14,6 @@
 !/awg/
 !/build/
 !/fetch-payload.sh
+
+AndroidApp/.build/
+*.idsig
