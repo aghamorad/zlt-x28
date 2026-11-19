@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ZLT X28</title>
+  <style>
+    :root {
+      --bg: #0D0F14;
+      --surface: #151922;
+      --surface-hi: #1C212D;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-hi: rgba(255, 255, 255, 0.18);
+      --text: #F4F1EA;
+      --muted: #949DB0;
+      --faint: #5E677A;
+      --teal: #008080;
+      --green: #32B868;
+      --vermilion: #E84A27;
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Roboto", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    .container { max-width: 680px; margin: 0 auto; padding: 20px 16px 48px; }
+    .brand-title { margin: 0; font-size: 23px; font-weight: 700; letter-spacing: -0.4px; }
+    .brand-sub { margin: 2px 0 16px; font-size: 13px; color: var(--muted); }
+    .seg {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      background: var(--surface);
+      padding: 4px;
+      border-radius: 11px;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .seg button {
+      min-height: 44px;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .seg button.active {
+      background: var(--surface-hi);
+      color: var(--text);
+      border: 1px solid var(--border-hi);
+    }
+    .scope-note { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+    .hero-title { margin: 0; font-size: 21px; font-weight: 650; }
+    .hero-detail { margin: 6px 0 14px; font-size: 14px; color: var(--muted); }
+    .btn {
+      min-height: 48px;
+      padding: 11px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border-hi);
+      background: var(--surface-hi);
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 600;
+      width: 100%;
+      margin-top: 8px;
+    }
+    .btn-green { background: var(--green); color: #fff; border: none; font-size: 16px; }
+    .btn-danger { background: var(--vermilion); color: #fff; border: none; }
+    .input-box {
+      width: 100%;
+      min-height: 46px;
+      border-radius: 10px;
+      border: 1px solid var(--border-hi);
+      background: var(--bg);
+      color: var(--text);
+      padding: 0 12px;
+      font-size: 15px;
+      margin: 6px 0 10px;
+    }
+    .kv-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 14px;
+    }
+    .kv-row:last-child { border-bottom: none; }
+    .kv-k { color: var(--muted); }
+    .kv-v { font-weight: 500; }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      color: var(--faint);
+      font-size: 12px;
+      margin-top: 24px;
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="brand-title">ZLT X28</h1>
+    <p class="brand-sub">Your 5G router, fixed in one tap from your Android phone.</p>
+
+    <div class="seg">
+      <button class="active" id="tabSimple" onclick="setTab('simple')">Simple (75)</button>
+      <button id="tabAdv" onclick="setTab('adv')">Advanced (35)</button>
+    </div>
+
+    <div class="card">
+      <label style="font-size:13px; color:var(--muted);">Router admin password (default is admin):</label>
+      <input type="text" class="input-box" id="pw" value="admin" />
+      <button class="btn" onclick="readStatus()">Read Router Status</button>
+    </div>
+
+    <div id="viewSimple">
+      <p class="scope-note">
+        Fixes the empty Auto-APN defect, turns on Auto-Dial, and clears stuck band locks on 192.168.70.1.
+      </p>
+      <div class="card">
+        <h2 class="hero-title" id="statusHead">One-Tap Connection Repair</h2>
+        <p class="hero-detail">
+          On ZLT X28 firmware 1.5.x, the default Auto APN resolves to blank for Iranian SIMs (MCC 432) and Auto-Dial can turn off. Tap below to restore MCI (mcinet), enable Auto-Dial, and unlock all 4G+/5G bands.
+        </p>
+        <button class="btn btn-green" onclick="fixNow()">
+          Fix My ZLT X28 Now
+        </button>
+        <p id="resultText" style="margin:10px 0 0; font-size:14px; color:var(--muted);"></p>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px; font-size:16px;">Router &amp; SIM Readings</h3>
+        <div id="kvBox">
+          <div class="kv-row"><span class="kv-k">Router</span><span class="kv-v">Tap "Read Router Status" above</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="viewAdv" class="hidden">
+      <p class="scope-note">Pin specific LTE/5G bands or restart the router.</p>
+      <div class="card">
+        <h3 style="margin:0 0 8px; font-size:16px;">Radio &amp; Band Selection</h3>
+        <button class="btn" onclick="setBand('auto')">All Bands (Auto 4G+ / 5G)</button>
+        <button class="btn" onclick="setBand('b3')">Pin LTE Band 3 (1800 MHz)</button>
+        <button class="btn" onclick="setBand('b3b7')">Pin LTE Band 3 + Band 7 (4G+ CA)</button>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px; font-size:16px;">Power</h3>
+        <button class="btn btn-danger" onclick="rebootNow()">Restart ZLT X28 Router</button>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Made by Morad</span>
+      <span>ZLT X28 v1.2.0 for Android</span>
+    </div>
+  </div>
+
+  <script>
+    function setTab(t) {
+      document.getElementById('tabSimple').classList.toggle('active', t === 'simple');
+      document.getElementById('tabAdv').classList.toggle('active', t === 'adv');
+      document.getElementById('viewSimple').classList.toggle('hidden', t !== 'simple');
+      document.getElementById('viewAdv').classList.toggle('hidden', t !== 'adv');
+    }
+
+    function readStatus() {
+      if (typeof ZltNative === 'undefined') return;
+      const pw = document.getElementById('pw').value;
+      const res = JSON.parse(ZltNative.readRouterStatus(pw));
+      if (res.ok) {
+        const rows = [
+          ['Operator', res.operator],
+          ['Network mode', res.network_type],
+          ['WAN IP', res.wan_ip],
+          ['Signal (RSRP / SINR)', `${res.rsrp} dBm / ${res.sinr} dB`],
+          ['Firmware', res.firmware]
+        ];
+        document.getElementById('kvBox').innerHTML = rows.map(([k, v]) =>
+          `<div class="kv-row"><span class="kv-k">${k}</span><span class="kv-v">${v}</span></div>`
+        ).join('');
+      } else {
+        document.getElementById('resultText').textContent = res.error || 'Could not reach 192.168.70.1';
+      }
+    }
+
+    function fixNow() {
+      if (typeof ZltNative === 'undefined') return;
+      const pw = document.getElementById('pw').value;
+      document.getElementById('resultText').textContent = 'Applying fix to 192.168.70.1…';
+      setTimeout(() => {
+        document.getElementById('resultText').textContent = ZltNative.fixRouterOneClick(pw);
+        readStatus();
+      }, 60);
+    }
+
+    function setBand(mode) {
+      if (typeof ZltNative === 'undefined') return;
+      const pw = document.getElementById('pw').value;
+      alert(ZltNative.setBandMode(pw, mode));
+    }
+
+    function rebootNow() {
+      if (typeof ZltNative === 'undefined') return;
+      if (!confirm('Restart the ZLT X28 router? Wi-Fi will drop for about a minute.')) return;
+      const pw = document.getElementById('pw').value;
+      alert(ZltNative.rebootRouter(pw));
+    }
+  </script>
+</body>
+</html>
