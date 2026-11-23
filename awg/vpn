@@ -65,7 +65,11 @@ list_conf() {
     for f in "$CONF".*; do
         [ -f "$f" ] || continue
         n=$(basename "$f" | sed 's/^awg0\.conf\.//')
-        [ "$n" = current ] || echo "$n"
+        [ "$n" = current ] && continue
+        # Older builds "set aside" a config by renaming it .disabled-<stamp>.
+        # Those files are leftovers, not configs, and must not appear as one.
+        case "$n" in *.disabled-*) continue ;; esac
+        echo "$n"
     done
 }
 # Ask the filesystem, not the init script: "${INIT} enabled" takes the procd lock.
@@ -372,17 +376,17 @@ sb_remove() {
     name=$1
     [ -n "$name" ] || { say "usage: vpn sb remove <name>"; return 2; }
     [ -f "$SB_DIR/links/$name.json" ] || { say "FAILED: no link named $name"; return 1; }
-    d=$SB_DIR/trash/$name-$(date +%s)
-    mkdir -p "$d"
-    mv "$SB_DIR/links/$name.json" "$d/" 2>/dev/null
-    mv "$SB_DIR/links/$name.test.json" "$d/" 2>/dev/null
-    mv "$SB_DIR/links/$name.link" "$d/" 2>/dev/null
     if [ "$(sb_active)" = "$name" ]; then
         sb_off >/dev/null 2>&1
         rm -f "$SB_DIR/active.json"
         echo "-" > "$SB_DIR/active_name"
     fi
-    say "removed $name (kept in $d)"
+    # Delete outright, including any copy an older build moved to trash.
+    rm -f "$SB_DIR/links/$name.json" "$SB_DIR/links/$name.test.json" \
+          "$SB_DIR/links/$name.link"
+    rm -rf "$SB_DIR/trash/$name"-*
+    [ -f "$SB_DIR/links/$name.json" ] && { say "FAILED: $name is still there"; return 1; }
+    say "deleted $name"
 }
 
 # Measure one link on a throwaway socks/http port, without touching the LAN route.

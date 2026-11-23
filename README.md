@@ -15,7 +15,7 @@ to do before it does it.
 | Device | Download | What it does |
 | --- | --- | --- |
 | **Android Phone** | **[Download ZLT-X28.apk (21 KB)](https://raw.githubusercontent.com/aghamorad/zlt-x28/main/AndroidApp/ZLT-X28.apk)** | Connect your Android phone to the ZLT X28 Wi-Fi (`192.168.70.1`) and tap **Fix My ZLT X28 Now** to fix the broken empty Auto-APN defect (`mcinet`), turn on Auto-Dial, clear stuck band locks, and read live signal/WAN IP. |
-| **Mac (Apple Silicon & Intel)** | **[Download ZLT-X28-v1.2.0-universal.zip](../../releases/latest)** | Full macOS app: one-switch router-wide VPN (AmneziaWG & sing-box share links), band speed benchmarking, and connection health diagnostics. |
+| **Mac (Apple Silicon & Intel)** | **[Download ZLT-X28-v1.2.1-universal.zip](../../releases/latest)** | Full macOS app: one-switch router-wide VPN (AmneziaWG & sing-box share links), band speed benchmarking, and connection health diagnostics. |
 
 ---
 
@@ -48,7 +48,7 @@ and pick another. Nothing here needs a server or an account.
 
 ## Install
 
-1. Download `ZLT-X28-v1.2.0-universal.zip` from
+1. Download `ZLT-X28-v1.2.1-universal.zip` from
    [Releases](../../releases/latest) and unzip it.
 2. Drag **ZLT X28** into **Applications**.
 3. Open it. The first launch will be blocked because the app is signed ad-hoc, not
@@ -62,7 +62,8 @@ The SHA-256 of the zip is published next to it, so you can check the download.
 1. **Router setup** — type the admin password and press the install button. The app
    copies its engine onto the router, gives it a startup hook so it survives a power
    cut, and installs its own SSH key. About a minute. You can repeat it safely.
-2. **VPN** — either paste a link, or drop in an AmneziaWG config.
+2. **VPN** — either paste a link, or drop in a `.conf`: plain WireGuard (Windscribe,
+   Mullvad, Proton and IVPN all hand these out) or AmneziaWG.
 3. Switch it **on**. Wait for the page to say the router is carrying traffic — that is
    the app checking packets actually flow, not just that a process started.
 4. **SIM & carrier → Optimize** — optional, but it is the difference between "works"
@@ -110,8 +111,9 @@ procd init scripts, and the two small Go helpers (`uapipush`, `dotbridge`).
   pulls a 2 MB file through it. That measures the link, not your current traffic, and
   it is safe to test while the VPN is on — but a busy Wi-Fi will make the numbers
   lower than the link can do.
-- VPN configs and links are stored on the router under `/data/zltx28/`. Removing a link
-  in the app moves it aside on the router rather than deleting it.
+- VPN configs and links live on the router under `/etc/amneziawg/` and
+  `/data/zltx28/`. The trash button deletes them outright, along with any older copy.
+  Keep your own copy of any config you may want back.
 
 ## Licence
 

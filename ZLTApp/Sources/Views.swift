@@ -443,12 +443,13 @@ struct VPNView: View {
 
                 InfoBox(title: "Where do I get one?",
                         text: "This app does not come with a server and does not connect you "
-                            + "to anyone's. A config is the file that ends in .conf. You can "
-                            + "get one from a friend who shares their AmneziaWG server, from a "
-                            + "VPN provider that supports AmneziaWG, or from a server you run "
-                            + "yourself. Importing it here only copies the file to the router "
-                            + "— your existing configs stay where they are, and nothing starts "
-                            + "until you flip the switch.",
+                            + "to anyone's. A config is the file that ends in .conf, and this "
+                            + "engine takes plain WireGuard as well as AmneziaWG. Get one from "
+                            + "a friend who shares their server, from a VPN provider — "
+                            + "Windscribe, Mullvad, Proton and IVPN all hand out WireGuard "
+                            + "files — or from a server you run yourself. Importing it here "
+                            + "only copies the file to the router; nothing starts until you "
+                            + "flip the switch.",
                         icon: "questionmark.circle")
 
             case .links:
@@ -473,33 +474,36 @@ struct VPNView: View {
                         icon: "questionmark.circle")
             }
         }
-        .alert("Set this link aside?",
+        .alert("Delete this config?",
                isPresented: Binding(
                     get: { pendingRemoval != nil },
                     set: { if !$0 { pendingRemoval = nil } })) {
             Button("Cancel", role: .cancel) { pendingRemoval = nil }
-            Button("Set aside", role: .destructive) {
+            Button("Delete", role: .destructive) {
                 let name = pendingRemoval?.name
                 pendingRemoval = nil
                 if let name { Task { await model.removeConfig(name) } }
             }
         } message: {
-            Text("\(pendingRemoval?.name ?? "This config") is renamed on the router, "
-                 + "not deleted, so you can recover it from the router later.")
+            Text("\(pendingRemoval?.name ?? "This config") is removed from the router "
+                 + "for good, together with any older copies of it. If it is the one "
+                 + "in use, the tunnel stops first. This cannot be undone.")
         }
-        .alert("Set this link aside?",
+        .alert("Delete this link?",
                isPresented: Binding(
                     get: { pendingLinkRemoval != nil },
                     set: { if !$0 { pendingLinkRemoval = nil } })) {
             Button("Cancel", role: .cancel) { pendingLinkRemoval = nil }
-            Button("Set aside", role: .destructive) {
+            Button("Delete", role: .destructive) {
                 let name = pendingLinkRemoval?.name
                 pendingLinkRemoval = nil
                 if let name { Task { await model.removeLink(name) } }
             }
         } message: {
-            Text("\(pendingLinkRemoval?.label ?? "This link") is moved to a trash "
-                 + "folder on the router, never deleted, so you can bring it back.")
+            Text("\(pendingLinkRemoval?.label ?? "This link") is removed from the router "
+                 + "for good, together with any copy already sitting in its trash "
+                 + "folder. If it is the one in use, the tunnel stops first. This "
+                 + "cannot be undone.")
         }
         .alert("Restart the tunnel?", isPresented: $confirmRestart) {
             Button("Cancel", role: .cancel) {}
@@ -691,7 +695,7 @@ struct VPNView: View {
                 Image(systemName: "trash")
             }
             .buttonStyle(.borderless)
-            .help("Set this config aside without deleting it")
+            .help("Delete this config from the router")
             .disabled(model.busy != nil)
         }
         .padding(.vertical, 4)
@@ -821,7 +825,7 @@ struct VPNView: View {
                 Image(systemName: "trash")
             }
             .buttonStyle(.borderless)
-            .help("Move this link to the router's trash folder")
+            .help("Delete this link from the router")
             .disabled(model.busy != nil)
         }
         .padding(.vertical, 4)
@@ -1968,7 +1972,8 @@ struct ScopeView: View {
                       + "VPN. Switching the tunnel on will not change it.")
                 Divider()
                 point("Import OpenVPN files. A config must be a WireGuard or "
-                      + "AmneziaWG .conf. OpenVPN profiles are refused.")
+                      + "AmneziaWG .conf (Windscribe, Mullvad, Proton and IVPN all "
+                      + "hand out WireGuard .conf files). OpenVPN profiles are refused.")
                 Divider()
                 point("Run both engines at once. It is AmneziaWG or links, one at a "
                       + "time, and the app says which.")
@@ -2008,11 +2013,12 @@ struct ScopeView: View {
 
     @ViewBuilder
     private var closingBox: some View {
-        InfoBox(title: "Removing is setting aside",
-                text: "Taking a config or a link off the list renames it on the router "
-                    + "rather than deleting it, so it can be brought back. Nothing in "
-                    + "this app removes a file outright.",
-                icon: "arrow.uturn.backward.circle")
+        InfoBox(title: "Delete means delete",
+                text: "The trash button removes the file from the router outright — the "
+                    + "config or link, any older copies of it, and the tunnel if it was "
+                    + "the one in use. Nothing is kept on the router in case you change "
+                    + "your mind, so keep your own copy of any config you may want again.",
+                icon: "trash.circle")
     }
 
     private func point(_ text: String) -> some View {

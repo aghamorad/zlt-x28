@@ -168,8 +168,8 @@ enum VPNEngine: String, CaseIterable, Identifiable {
     var blurb: String {
         switch self {
         case .amnezia:
-            return "A .conf file from your own AmneziaWG server. One tunnel, "
-                 + "one server, nothing to test."
+            return "A .conf file — plain WireGuard, or AmneziaWG (WireGuard with "
+                 + "obfuscation). One tunnel, one server, nothing to test."
         case .links:
             return "Paste share links (vless, vmess, trojan, shadowsocks, "
                  + "hysteria2). Try several, keep the fastest, drop the dead ones."
@@ -644,7 +644,8 @@ final class AppModel: ObservableObject {
             "/usr/bin/vpn awg list 2>/dev/null; echo '@@'; "
             + "/usr/bin/vpn awg status 2>/dev/null; echo '@@'; "
             + "for f in /etc/amneziawg/awg0.conf.*; do [ -f \"$f\" ] || continue; "
-            + "n=${f##*.}; [ \"$n\" = current ] && continue; echo \"cfg:$n\"; "
+            + "n=${f##*.}; [ \"$n\" = current ] && continue; "
+            + "case \"$n\" in disabled-*|*.disabled-*) continue ;; esac; echo \"cfg:$n\"; "
             + "awk -F' *= *' 'tolower($1)==\"endpoint\" {print \"endpoint:\" $2; exit}' \"$f\"; "
             + "done; echo '@@'; /usr/bin/vpn sb status quick 2>/dev/null; echo '@@'; "
             + "[ -x /data/zltx28/bin/sing-box ] && echo SB_INSTALLED || echo SB_MISSING; "
@@ -868,18 +869,35 @@ final class AppModel: ObservableObject {
         await refresh()
     }
 
+    /// Deletes the config outright: the named file, any older `.disabled-*`
+    /// copies of it, and — if it is the one in use — the live `awg0.conf` too,
+    /// after stopping the tunnel. Nothing is kept "in case".
     func removeConfig(_ name: String) async {
-        busy = "Removing \(name)…"
+        busy = "Deleting \(name)…"
         notice = nil
-        let stamp = Int(Date().timeIntervalSince1970)
-        let result = await RouterSSH.run(
-            "mv '/etc/amneziawg/awg0.conf.\(name)' "
-            + "'/etc/amneziawg/awg0.conf.\(name).disabled-\(stamp)'",
-            timeout: 30)
+        let wasActive = (name == currentConfig)
+        // The name is limited to letters, digits, - and _ when it is created,
+        // so it cannot break out of the quotes.
+        var script = ""
+        if wasActive {
+            script += "/usr/bin/vpn awg off >/dev/null 2>&1; "
+            script += "rm -f /etc/amneziawg/awg0.conf; "
+        }
+        script += "rm -f '/etc/amneziawg/awg0.conf.\(name)' "
+        script += "/etc/amneziawg/awg0.conf.'\(name)'.disabled-*; "
+        script += "[ -e '/etc/amneziawg/awg0.conf.\(name)' ] "
+        script += "&& echo STILL_THERE || echo GONE"
+        let result = await RouterSSH.run(script, timeout: 30)
         busy = nil
-        notice = result.ok
-            ? "\(name) was set aside. The file is still on the router, renamed with .disabled."
-            : "Could not remove the config: \(result.trimmed)"
+        if result.output.contains("GONE") {
+            notice = wasActive
+                ? "\(name) is deleted, and the tunnel that was using it is stopped."
+                : "\(name) is deleted from the router."
+        } else if result.ok {
+            notice = "The router still lists \(name). Try again."
+        } else {
+            notice = "Could not delete the config: \(result.trimmed)"
+        }
         await refresh()
     }
 
@@ -1096,16 +1114,37 @@ final class AppModel: ObservableObject {
         if sb.isOn { await fetchSBExit() }
     }
 
+    /// Deletes the link outright: the files the router made for it, any earlier
+    /// copy already moved to the router's trash folder, and the tunnel itself
+    /// when this was the link carrying traffic.
     func removeLink(_ name: String) async {
-        busy = "Removing \(name)…"
+        busy = "Deleting \(name)…"
         notice = nil
-        let result = await RouterSSH.run("/usr/bin/vpn sb remove '\(name)'", timeout: 60)
+        let wasActive = (name == sb.active)
+        var script = ""
+        if wasActive {
+            script += "/usr/bin/vpn sb off >/dev/null 2>&1; "
+            script += "rm -f /data/zltx28/singbox/active.json; "
+            script += "echo '-' > /data/zltx28/singbox/active_name; "
+        }
+        script += "rm -f '/data/zltx28/singbox/links/\(name).json' "
+        script += "'/data/zltx28/singbox/links/\(name).test.json' "
+        script += "'/data/zltx28/singbox/links/\(name).link'; "
+        script += "rm -rf /data/zltx28/singbox/trash/'\(name)'-*; "
+        script += "[ -e '/data/zltx28/singbox/links/\(name).json' ] "
+        script += "&& echo STILL_THERE || echo GONE"
+        let result = await RouterSSH.run(script, timeout: 60)
         busy = nil
-        if result.ok { Self.forget(name) }
-        notice = result.ok
-            ? "\(name) was set aside. The router keeps a copy under "
-              + "/data/zltx28/singbox/trash, so nothing is lost."
-            : "Could not remove the link: \(result.trimmed)"
+        if result.output.contains("GONE") {
+            Self.forget(name)
+            notice = wasActive
+                ? "\(name) is deleted, and the link tunnel that was using it is stopped."
+                : "\(name) is deleted from the router."
+        } else if result.ok {
+            notice = "The router still lists \(name). Try again."
+        } else {
+            notice = "Could not delete the link: \(result.trimmed)"
+        }
         await refresh()
     }
 

@@ -1,3 +1,13 @@
+## ZLT X28 1.2.1
+
+**The trash button deletes.** It used to rename a config to `.disabled-<time>` on the router and move a link into a `trash` folder — "setting it aside" — which meant a delete you asked for left a file behind, and in the configs list the renamed file even came back as a new entry called `rabisu.disabled-1795446485`. That was not what a trash button means.
+
+Now it removes the file outright: the config, any older `.disabled-` copy of it, the link's generated files, and any copy already sitting in the router's trash folder. If the thing you delete is the one carrying traffic, the app stops the tunnel first and says so. Nothing is kept "in case". The one place this matters: the app can no longer bring a deleted config back, so keep your own copy of anything you might want again. The **What it does** page says exactly that.
+
+Two smaller things came with it. The configs list no longer shows those `.disabled-` leftovers as if they were configs — they were only ever remnants of the old behaviour. And the config engine's copy now says what it has always accepted: plain **WireGuard** as well as AmneziaWG. Windscribe, Mullvad, Proton and IVPN all hand out WireGuard `.conf` files, and they import here the same way an AmneziaWG one does.
+
+Verified on the router: deleting a config removed both the file and its `.disabled-` copy; deleting a link removed its `.json`, `.test.json`, `.link` and its trash folder; and a plain WireGuard config (no obfuscation fields) was accepted and pushed by the engine.
+
 ## ZLT X28 1.2.0
 
 **Every screen now says what it will do to your router before it does it, and one new page says it all in one place.**
