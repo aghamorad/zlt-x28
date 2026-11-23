@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ZLT X28 — VPN</title>
+<style>
+  :root{
+    --bg:#0d0f14; --surface:#151922; --surface-hi:#1c212d; --border:rgba(255,255,255,.09);
+    --text:#f4f1ea; --muted:#9aa3b5; --green:#32b868; --red:#e84a27; --blue:#2f7cf6;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.45}
+  main{max-width:620px;margin:0 auto;padding:22px 18px 60px}
+  h1{font-size:26px;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .hero{font-size:30px;font-weight:800;margin:0}
+  .hero.on{color:var(--green)}
+  .hero.off{color:var(--muted)}
+  .note{color:var(--muted);font-size:15px;margin:8px 0 0}
+  .btn{appearance:none;border:0;border-radius:14px;background:var(--surface-hi);color:var(--text);
+       font-size:17px;font-weight:700;padding:16px 18px;min-height:56px;width:100%;cursor:pointer}
+  .btn:active{transform:scale(.99)}
+  .btn.primary{background:var(--blue)}
+  .btn.green{background:var(--green);color:#08130c}
+  .btn.danger{background:transparent;border:1px solid rgba(232,74,39,.5);color:#ff8f74;
+              width:auto;min-height:44px;padding:10px 14px;font-size:14px;font-weight:600}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg);padding:6px;border-radius:14px;border:1px solid var(--border);margin-bottom:16px}
+  .seg button{border:0;background:transparent;color:var(--muted);font-size:16px;font-weight:700;padding:14px 8px;border-radius:10px;min-height:52px}
+  .seg button.active{background:var(--surface-hi);color:var(--text);border:1px solid var(--border)}
+  .item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid var(--border)}
+  .item:first-of-type{border-top:0}
+  .name{font-size:17px;font-weight:700}
+  .ep{color:var(--muted);font-size:13px;word-break:break-all}
+  .inuse{color:var(--green);font-size:13px;font-weight:700}
+  .actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
+  .small{color:var(--muted);font-size:13px}
+  .hidden{display:none}
+  #toast{position:fixed;left:12px;right:12px;bottom:16px;background:#222835;border:1px solid var(--border);
+         border-radius:14px;padding:14px 16px;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none}
+  #toast.show{opacity:1}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);
+        border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite;vertical-align:-3px;margin-right:8px}
+  @keyframes s{to{transform:rotate(360deg)}}
+  footer{color:var(--muted);font-size:13px;text-align:center;margin-top:26px;line-height:1.7}
+</style>
+</head>
+<body>
+<main>
+  <h1>ZLT X28</h1>
+  <p class="sub">The VPN for every device on this Wi-Fi.</p>
+
+  <div class="card">
+    <p class="hero off" id="hero">Reading the router…</p>
+    <p class="note" id="heroNote">One moment.</p>
+    <div style="height:14px"></div>
+    <button class="btn primary" id="switchBtn" onclick="flip()">Turn the VPN on</button>
+  </div>
+
+  <div class="card">
+    <div class="seg">
+      <button id="tabConfigs" class="active" onclick="setTab('configs')">Configs</button>
+      <button id="tabLinks" onclick="setTab('links')">Links</button>
+    </div>
+
+    <div id="configs">
+      <p class="small" id="configsEmpty">No configs on the router yet.</p>
+      <div id="configList"></div>
+    </div>
+
+    <div id="links" class="hidden">
+      <p class="small" id="linksEmpty">No links on the router yet.</p>
+      <div id="linkList"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="name">Read it again</div>
+        <div class="ep">The page refreshes by itself after every change.</div>
+      </div>
+      <button class="btn" style="width:auto;min-height:48px;padding:12px 16px" onclick="load()">Refresh</button>
+    </div>
+  </div>
+
+  <footer>
+    This page lives on the router, not on a computer.<br>
+    Nothing here touches your SIM, your plan, or the Wi-Fi password.<br>
+    Made by Morad
+  </footer>
+</main>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  var API = '/cgi-bin/zlt';
+  var state = { awg: {on:0}, sb: {on:0}, configs: [], links: [] };
+  var tab = 'configs';
+
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._h);
+    t._h = setTimeout(function () { t.classList.remove('show'); }, 5000);
+  }
+
+  function busy(on, label) {
+    var b = document.getElementById('switchBtn');
+    b.disabled = !!on;
+    if (on) {
+      b.innerHTML = '<span class="spin"></span>' + (label || 'Working…');
+    }
+  }
+
+  function get(act, params) {
+    var q = '?act=' + encodeURIComponent(act);
+    if (params) {
+      for (var k in params) q += '&' + k + '=' + encodeURIComponent(params[k]);
+    }
+    return fetch(API + q, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('The router answered ' + r.status);
+      return r.json();
+    });
+  }
+
+  function load() {
+    get('status').then(function (s) {
+      state = s;
+      render();
+    }).catch(function (e) {
+      document.getElementById('hero').textContent = 'Cannot reach the router';
+      document.getElementById('hero').className = 'hero off';
+      document.getElementById('heroNote').textContent =
+        'Are you still on the ZLT X28 Wi-Fi? ' + e.message;
+    });
+  }
+
+  function render() {
+    var on = Number(state.awg.on) === 1;
+    var hero = document.getElementById('hero');
+    var note = document.getElementById('heroNote');
+    var b = document.getElementById('switchBtn');
+    b.disabled = false;
+
+    if (on) {
+      hero.textContent = 'VPN is on';
+      hero.className = 'hero on';
+      note.textContent = 'Everything on this Wi-Fi leaves through '
+        + (state.awg.config ? state.awg.config : 'your server')
+        + ' first. Websites see ' + (state.awg.exit || 'its address') + ', not your SIM.';
+      b.textContent = 'Turn the VPN off';
+      b.className = 'btn';
+    } else {
+      hero.textContent = 'VPN is off';
+      hero.className = 'hero off';
+      note.textContent = 'Traffic goes straight out through the mobile network.';
+      b.textContent = 'Turn the VPN on';
+      b.className = 'btn primary';
+    }
+
+    renderConfigs();
+    renderLinks();
+  }
+
+  function renderConfigs() {
+    var box = document.getElementById('configList');
+    var empty = document.getElementById('configsEmpty');
+    var list = state.configs || [];
+    empty.classList.toggle('hidden', list.length > 0);
+    box.innerHTML = '';
+    list.forEach(function (c) {
+      var inUse = c.name === state.awg.config;
+      var div = document.createElement('div');
+      div.className = 'item';
+      div.innerHTML =
+        '<div><div class="name"></div><div class="ep"></div>'
+        + (inUse ? '<div class="inuse">In use</div>' : '') + '</div>'
+        + '<div class="actions"><button class="btn" style="width:auto;min-height:46px;padding:10px 16px">Use</button>'
+        + '<button class="btn danger">Delete</button></div>';
+      div.querySelector('.name').textContent = c.name;
+      div.querySelector('.ep').textContent = c.endpoint || '';
+      var buttons = div.querySelectorAll('button');
+      buttons[0].disabled = inUse;
+      buttons[0].onclick = function () { act('awg_use', {name: c.name}, 'Switching to ' + c.name + '…'); };
+      buttons[1].onclick = function () { removeItem('config', c.name); };
+      box.appendChild(div);
+    });
+  }
+
+  function renderLinks() {
+    var box = document.getElementById('linkList');
+    var empty = document.getElementById('linksEmpty');
+    var list = state.links || [];
+    empty.classList.toggle('hidden', list.length > 0);
+    box.innerHTML = '';
+    list.forEach(function (l) {
+      var div = document.createElement('div');
+      div.className = 'item';
+      div.innerHTML =
+        '<div><div class="name"></div><div class="ep">Share link</div>'
+        + (l.name === state.sb.link ? '<div class="inuse">In use</div>' : '') + '</div>'
+        + '<div class="actions"><button class="btn" style="width:auto;min-height:46px;padding:10px 16px">Use</button>'
+        + '<button class="btn danger">Delete</button></div>';
+      div.querySelector('.name').textContent = l.name;
+      var buttons = div.querySelectorAll('button');
+      buttons[0].onclick = function () { act('sb_use', {name: l.name}, 'Switching to ' + l.name + '…'); };
+      buttons[1].onclick = function () {
+        if (confirm('Delete ' + l.name + ' from the router? This cannot be undone.')) {
+          act('sb_delete', {name: l.name}, 'Deleting ' + l.name + '…');
+        }
+      };
+      box.appendChild(div);
+    });
+  }
+
+  function flip() {
+    if (Number(state.awg.on) === 1) {
+      busy(true, 'Turning off…');
+      get('awg_off').then(after).catch(recover);
+    } else {
+      busy(true, 'Turning on…');
+      get('awg_on').then(after).catch(recover);
+    }
+  }
+
+  function act(name, params, label) {
+    toast(label || 'Working…');
+    get(name, params).then(after).catch(recover);
+  }
+
+  function after(r) {
+    busy(false);
+    if (r && r.say) toast(r.say);
+    if (r && r.ok === false) {
+      document.getElementById('toast').textContent = 'That did not work: ' + (r.say || 'no reason given');
+    }
+    load();
+  }
+
+  function recover(e) {
+    busy(false);
+    toast('The router did not answer. ' + (e && e.message ? e.message : ''));
+    load();
+  }
+
+  function removeItem(kind, name) {
+    var question = 'Delete ' + name + ' from the router? This cannot be undone.';
+    if (!confirm(question)) return;
+    if (kind === 'config') act('awg_delete', {name: name}, 'Deleting ' + name + '…');
+    else act('sb_delete', {name: name}, 'Deleting ' + name + '…');
+  }
+
+  function setTab(which) {
+    tab = which;
+    document.getElementById('tabConfigs').classList.toggle('active', which === 'configs');
+    document.getElementById('tabLinks').classList.toggle('active', which === 'links');
+    document.getElementById('configs').classList.toggle('hidden', which !== 'configs');
+    document.getElementById('links').classList.toggle('hidden', which !== 'links');
+  }
+
+  window.setTab = setTab;
+  window.flip = flip;
+  window.load = load;
+
+  load();
+  setInterval(load, 15000);
+})();
+</script>
+</body>
+</html>

@@ -1,3 +1,15 @@
+## ZLT X28 1.3.0
+
+**The router now has its own web page.** Open `http://192.168.70.1/zlt.html` on any phone, tablet or TV browser on the Wi-Fi and you get the same controls as the Mac app's VPN screen: whether the VPN is on, one big switch, the configs and links on the router, and Use/Delete for each. Nothing to install on the phone, and it keeps working when the Mac is asleep or off.
+
+It is served by the router itself — a small page in the router's web folder plus a tiny script that calls the same `/usr/bin/vpn` the app calls. Setup installs it along with the engine.
+
+**And it repairs itself.** A firmware update can wipe the router's web folder. The app checks for the page every time it reads the router; if it is missing, it copies it back without being asked and says so. There is also an **Open web app** card on Home with the address, a copy button, and a **Put it back** button.
+
+Two things to know. It asks for no password, because it sits on the same LAN as the stock admin page and does only what the Mac app does — so anyone on your Wi-Fi could use it. And it can do VPN things only: no SIM, APN, Wi-Fi or firmware changes.
+
+Verified end to end: the page loads over the router, the API answers with the live config list, the switch and delete calls work, and deleting both files and relaunching the app put them back with the right permissions.
+
 ## ZLT X28 1.2.1
 
 **The trash button deletes.** It used to rename a config to `.disabled-<time>` on the router and move a link into a `trash` folder — "setting it aside" — which meant a delete you asked for left a file behind, and in the configs list the renamed file even came back as a new entry called `rabisu.disabled-1795446485`. That was not what a trash button means.

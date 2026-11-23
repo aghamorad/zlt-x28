@@ -141,5 +141,12 @@ ln -sf "$PROGRAM_DIR/sing-box" /usr/bin/sing-box
 place singbox.init /etc/init.d/singbox 755 || exit 1
 mkdir -p /data/zltx28/singbox/links /data/zltx28/singbox/trash
 
+# The phone page, served by the router's own web server at /zlt/. Small files,
+# and the app puts them back by itself after a firmware update wipes /www.
+echo "Installing the phone web page…"
+mkdir -p /tzwww /tzwww/cgi-bin
+place web/index.html /tzwww/zlt.html 644 || echo "Note: the phone page was not installed"
+place web/zlt.cgi    /tzwww/cgi-bin/zlt    755 || echo "Note: the phone page API was not installed"
+
 sync
 echo "ZLT_INSTALL_OK"

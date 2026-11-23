@@ -29,6 +29,8 @@ cp "$ROOT/awg/amneziawg.init"              "$APP/Contents/Resources/router/amnez
 cp "$ROOT/awg/singbox.init"                "$APP/Contents/Resources/router/singbox.init"
 cp "$ROOT/build/sing-box.gz"               "$APP/Contents/Resources/router/sing-box.gz"
 cp "$HERE/Resources/router/install.sh"     "$APP/Contents/Resources/router/install.sh"
+rm -rf "$APP/Contents/Resources/router/web"
+cp -R "$HERE/Resources/router/web"         "$APP/Contents/Resources/router/web"
 
 echo "Copying the icon…"
 cp "$HERE/Resources/AppIcon.icns"          "$APP/Contents/Resources/AppIcon.icns"
@@ -51,8 +53,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleDisplayName</key>           <string>ZLT X28</string>
     <key>CFBundleIconFile</key>              <string>AppIcon.icns</string>
     <key>CFBundlePackageType</key>           <string>APPL</string>
-    <key>CFBundleShortVersionString</key>    <string>1.2.1</string>
-    <key>CFBundleVersion</key>               <string>5</string>
+    <key>CFBundleShortVersionString</key>    <string>1.3.0</string>
+    <key>CFBundleVersion</key>               <string>6</string>
     <key>ZLTBuildCommit</key>                <string>${COMMIT}</string>
     <key>ZLTBuildDate</key>                  <string>${BUILD_DATE}</string>
     <key>LSMinimumSystemVersion</key>        <string>13.0</string>

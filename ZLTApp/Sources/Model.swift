@@ -442,6 +442,9 @@ final class AppModel: ObservableObject {
     @Published var busy: String?
     @Published var notice: String?
 
+    /// The phone page the router serves at /zlt/. nil = not asked yet.
+    @Published var webAppReady: Bool?
+
     enum UpdateState: Equatable {
         case idle
         case checking
@@ -571,6 +574,7 @@ final class AppModel: ObservableObject {
     }
 
     private var refreshing = false
+    private var repairingWebApp = false
     private let server = FileServer(root: AppResources.routerDirectory)
 
     var vpnOn: Bool { engine == .amnezia ? status.isOn : sb.isOn }
@@ -651,7 +655,9 @@ final class AppModel: ObservableObject {
             + "[ -x /data/zltx28/bin/sing-box ] && echo SB_INSTALLED || echo SB_MISSING; "
             + "/usr/bin/vpn sb list 2>/dev/null; echo '@@'; "
             + "for f in /data/zltx28/singbox/links/*.link; do [ -f \"$f\" ] || continue; "
-            + "n=${f##*/}; n=${n%.link}; echo \"LINK:$n\"; cat \"$f\"; echo; done",
+            + "n=${f##*/}; n=${n%.link}; echo \"LINK:$n\"; cat \"$f\"; echo; done; "
+            + "echo '@@'; [ -x /tzwww/cgi-bin/zlt ] && [ -f /tzwww/zlt/index.html ] "
+            + "&& echo WEB_OK || echo WEB_MISSING",
             timeout: 45)
 
         provisioned = probe.ok && probe.output.contains("daemon")
@@ -664,6 +670,7 @@ final class AppModel: ObservableObject {
         let sbText = sections.count > 4 ? sections[3] : ""
         let sbListText = sections.count > 5 ? sections[4] : ""
         let linkText = sections.count > 5 ? sections[5] : ""
+        let webText = sections.count > 6 ? sections[6] : ""
 
         configs = Self.parseConfigs(listing: listing, details: configText)
         status = Self.parseStatus(statusText)
@@ -672,7 +679,57 @@ final class AppModel: ObservableObject {
         if parsedSB.isOn && parsedSB.exitIP == "—" { parsedSB.exitIP = sb.exitIP }
         sb = parsedSB
         mergeLinks(Self.parseLinks(linkText), installed: sb.installed)
+        webAppReady = webText.contains("WEB_OK")
         lastRefresh = Date()
+        // A firmware update wipes the router's web folder. Put the page back unprompted.
+        if webAppReady == false, !repairingWebApp {
+            Task { await self.repairWebApp() }
+        }
+    }
+
+    // MARK: - The phone page that lives on the router
+
+    var webAppURL: URL { URL(string: "http://192.168.70.1/zlt.html")! }
+
+    func openWebApp() {
+        NSWorkspace.shared.open(webAppURL)
+    }
+
+    /// Copies the page and its tiny API into /tzwww, where the router's own web
+    /// server serves them. Safe to run any time; it overwrites its own files only.
+    func repairWebApp() async {
+        guard !repairingWebApp, provisioned else { return }
+        repairingWebApp = true
+        defer { repairingWebApp = false }
+        let ok = await Self.installWebAppFiles()
+        webAppReady = ok
+        if ok, notice == nil {
+            notice = "The router's phone page is in place at 192.168.70.1/zlt.html"
+        } else if !ok {
+            notice = "The phone page could not be copied to the router. "
+                   + "Run Router setup once, then try again."
+        }
+    }
+
+    static func installWebAppFiles() async -> Bool {
+        let root = AppResources.routerDirectory
+        let page = root.appendingPathComponent("web/index.html")
+        let api = root.appendingPathComponent("web/zlt.cgi")
+        guard FileManager.default.fileExists(atPath: page.path),
+              FileManager.default.fileExists(atPath: api.path) else { return false }
+        _ = await RouterSSH.run("mkdir -p /tzwww /tzwww/cgi-bin", timeout: 20)
+        // Copy to /tmp first: scp lands files 0600, and moving them into place
+        // afterwards lets one command set the modes the web server needs.
+        let a = await RouterSSH.scp(page, to: "/tmp/zlt-page.html")
+        let b = await RouterSSH.scp(api, to: "/tmp/zlt-api.cgi")
+        guard a.ok, b.ok else { return false }
+        let done = await RouterSSH.run(
+            "chmod 644 /tmp/zlt-page.html; chmod 755 /tmp/zlt-api.cgi; "
+            + "mv -f /tmp/zlt-page.html /tzwww/zlt.html; "
+            + "mv -f /tmp/zlt-api.cgi /tzwww/cgi-bin/zlt; "
+            + "[ -x /tzwww/cgi-bin/zlt ] && [ -f /tzwww/zlt.html ] && echo WEB_OK",
+            timeout: 30)
+        return done.output.contains("WEB_OK")
     }
 
     private static func parseSB(_ text: String, listing: String) -> SBTunnelStatus {

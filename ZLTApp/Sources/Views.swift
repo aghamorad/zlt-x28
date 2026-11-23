@@ -217,6 +217,8 @@ struct HomeView: View {
                 simCard
             }
 
+            phoneCard
+
             InfoBox(title: "What the switch actually does",
                     text: "On: everything on this Wi-Fi leaves through your VPN server "
                         + "first, so websites see the server's address instead of your "
@@ -225,6 +227,56 @@ struct HomeView: View {
                         + "it never touches your SIM, your plan, or your Wi-Fi password. "
                         + "The full list of what this app can and cannot do is under "
                         + "\"What it does\" in the sidebar.")
+        }
+    }
+
+    private var phoneCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Open on your phone").font(.headline)
+                    Spacer()
+                    if model.webAppReady == false {
+                        Chip(text: "Not on the router", color: .orange)
+                    }
+                }
+                Text("The router serves its own page at 192.168.70.1/zlt.html — "
+                     + "any phone, tablet or TV browser on this Wi-Fi can open it. "
+                     + "Nothing to install, and it keeps working when this Mac is off.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                HStack(spacing: 10) {
+                    Button {
+                        model.openWebApp()
+                    } label: {
+                        Label("Open web app", systemImage: "safari")
+                    }
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString("http://192.168.70.1/zlt.html",
+                                                       forType: .string)
+                        model.notice = "Address copied. Paste it into your phone's browser."
+                    } label: {
+                        Label("Copy address", systemImage: "doc.on.doc")
+                    }
+                    if model.webAppReady == false {
+                        Button {
+                            Task { await model.repairWebApp() }
+                        } label: {
+                            Label("Put it back", systemImage: "arrow.down.to.line")
+                        }
+                    }
+                    Spacer()
+                }
+                .disabled(model.busy != nil || !model.provisioned)
+
+                if model.webAppReady == false {
+                    Text("A firmware update erases the router's web folder. Press "
+                         + "Put it back — the app copies the page again in a few seconds.")
+                        .font(.caption).foregroundStyle(.orange)
+                }
+            }
         }
     }
 

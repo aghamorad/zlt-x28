@@ -15,7 +15,7 @@ to do before it does it.
 | Device | Download | What it does |
 | --- | --- | --- |
 | **Android Phone** | **[Download ZLT-X28.apk (21 KB)](https://raw.githubusercontent.com/aghamorad/zlt-x28/main/AndroidApp/ZLT-X28.apk)** | Connect your Android phone to the ZLT X28 Wi-Fi (`192.168.70.1`) and tap **Fix My ZLT X28 Now** to fix the broken empty Auto-APN defect (`mcinet`), turn on Auto-Dial, clear stuck band locks, and read live signal/WAN IP. |
-| **Mac (Apple Silicon & Intel)** | **[Download ZLT-X28-v1.2.1-universal.zip](../../releases/latest)** | Full macOS app: one-switch router-wide VPN (AmneziaWG & sing-box share links), band speed benchmarking, and connection health diagnostics. |
+| **Mac (Apple Silicon & Intel)** | **[Download ZLT-X28-v1.3.0-universal.zip](../../releases/latest)** | Full macOS app: one-switch router-wide VPN (AmneziaWG & sing-box share links), band speed benchmarking, and connection health diagnostics. |
 
 ---
 
@@ -24,6 +24,7 @@ to do before it does it.
 | Screen | What it is for |
 | --- | --- |
 | **Home** | One switch for the VPN, and one sentence saying what every device on the Wi-Fi is doing right now. |
+| **Phone page** | The router serves the same VPN controls at `http://192.168.70.1/zlt.html` — any phone or TV browser on the Wi-Fi, nothing to install. **Open web app** on Home opens it. |
 | **VPN** | Two ways to get out of the country: **Configs** (AmneziaWG/WireGuard files) and **Links** (paste `vless://`, `vmess://`, `trojan://`, `ss://`, `hysteria2://`, `socks://`). Paste, test, pick, switch on, remove. |
 | **Radio & bands** | Scans the cells the router can actually hear, then measures band-by-band whether pinning a band is faster. Keeps the winner; puts everything back if it is not. |
 | **Router setup** | The one-time job: log in, install the engine, done. Safe to run again. |
@@ -48,7 +49,7 @@ and pick another. Nothing here needs a server or an account.
 
 ## Install
 
-1. Download `ZLT-X28-v1.2.1-universal.zip` from
+1. Download `ZLT-X28-v1.3.0-universal.zip` from
    [Releases](../../releases/latest) and unzip it.
 2. Drag **ZLT X28** into **Applications**.
 3. Open it. The first launch will be blocked because the app is signed ad-hoc, not
@@ -70,6 +71,10 @@ The SHA-256 of the zip is published next to it, so you can check the download.
    and "works at the speed your SIM can do".
 
 ## What "on" actually means
+
+There is also a copy of the VPN screen served by the router itself, at
+`http://192.168.70.1/zlt.html` — for a phone, a tablet or a TV browser. It is installed
+with the engine, and the app puts it back by itself if a firmware update erases it.
 
 The VPN runs **on the router**, not on your Mac. That means every phone, TV and laptop
 on the Wi-Fi is covered, including for apps that ignore the Mac's own proxy settings.
