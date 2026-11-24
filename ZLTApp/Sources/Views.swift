@@ -473,7 +473,6 @@ struct VPNView: View {
     @State private var selection: Set<String> = []
     @State private var selectAnchor: String?
     @State private var renaming: ConfigEntry?
-    @State private var renameText = ""
     @State private var confirmBulkDelete = false
     @State private var splitUI = false
     @State private var killUI = false
@@ -550,19 +549,9 @@ struct VPNView: View {
         .onDrop(of: [.fileURL], isTargeted: $isDropTarget) { providers in
             handleDrop(providers)
         }
-        .alert("Rename config", isPresented: Binding(
-            get: { renaming != nil },
-            set: { if !$0 { renaming = nil } })) {
-            TextField("Name", text: $renameText)
-            Button("Cancel", role: .cancel) { renaming = nil }
-            Button("Rename") {
-                let old = renaming?.name
-                let new = renameText
-                renaming = nil
-                if let old { Task { await model.renameConfig(old, to: new) } }
-            }
-        } message: {
-            Text("Letters, digits, - and _ only. The tunnel is not interrupted.")
+        .sheet(item: $renaming) { entry in
+            RenameConfigSheet(entry: entry)
+                .environmentObject(model)
         }
         .alert("Delete \(selection.count) configs?", isPresented: $confirmBulkDelete) {
             Button("Cancel", role: .cancel) {}
@@ -879,7 +868,6 @@ struct VPNView: View {
             .disabled(active || model.busy != nil)
             Button {
                 renaming = entry
-                renameText = entry.name
             } label: {
                 Image(systemName: "pencil")
             }
@@ -901,6 +889,10 @@ struct VPNView: View {
             .fill(picked ? Color.accentColor.opacity(0.14) : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture { selectConfig(entry.name) }
+        .contextMenu {
+            Button("Rename…") { renaming = entry }
+            Button("Delete", role: .destructive) { pendingRemoval = entry }
+        }
         .onDeleteCommand { if !selection.isEmpty { confirmBulkDelete = true } }
     }
 
@@ -2529,5 +2521,64 @@ struct StepCard<Content: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+}
+
+
+/// A proper rename dialog: prefilled every time, validated before it submits,
+/// and it does not touch the running tunnel.
+private struct RenameConfigSheet: View {
+    let entry: ConfigEntry
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    @State private var error: String?
+
+    init(entry: ConfigEntry) {
+        self.entry = entry
+        _name = State(initialValue: entry.name)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Rename config").font(.headline)
+            TextField("Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .onSubmit { commit() }
+            Text("Letters, digits, - and _ only. The tunnel keeps running.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if let error {
+                Text(error).font(.caption).foregroundStyle(.red)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
+                Button("Rename") { commit() }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(20)
+        .frame(width: 400)
+    }
+
+    private func commit() {
+        let cleaned = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: " ", with: "-")
+        guard !cleaned.isEmpty else {
+            error = "A config needs a name."
+            return
+        }
+        guard cleaned.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else {
+            error = "Use letters, digits, - or _ only."
+            return
+        }
+        if cleaned != entry.name {
+            let old = entry.name
+            Task { await model.renameConfig(old, to: cleaned) }
+        }
+        dismiss()
     }
 }

@@ -1,3 +1,9 @@
+## ZLT X28 1.4.1
+
+**Renaming, done properly.** The rename dialog is now a real sheet that opens with the current name already in it and selected, so you can just type over it — every time, not only the first time. It validates as you go (letters, digits, `-` and `_`), refuses a name that is already taken, and closes on Return. Right-click any config for **Rename…** and **Delete** as well, the way a Mac list should behave.
+
+Renaming the config that is currently in use works too: the live tunnel keeps running, and the "In use" marker follows the new name. Verified end to end — renamed the active `rabisu3` to `rabisu-live`, saw the router pick up the new name, then renamed it back.
+
 ## ZLT X28 1.4.0
 
 **Split tunnelling and a kill switch, and the engines underneath are current.**
