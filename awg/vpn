@@ -84,9 +84,11 @@ on() {
     # Let procd own the daemon when the service exists. Calling start on a service
     # that is already running hangs under procd, so only start it when it is down.
     if [ -z "$AMNEZIAWG_FROM_INIT" ] && [ -x "$INIT" ]; then
-        "$INIT" enable >/dev/null 2>&1
+        # procd can take its lock and never give it back (a child holding fd 1000).
+        # A timeout turns a frozen router into a clear failure instead.
+        timeout 10 "$INIT" enable >/dev/null 2>&1
         if ! running; then
-            AMNEZIAWG_FROM_INIT=1 "$INIT" start >/dev/null 2>&1
+            timeout 15 env AMNEZIAWG_FROM_INIT=1 "$INIT" start >/dev/null 2>&1
             i=0
             while [ $i -lt 25 ] && ! running; do i=$((i + 1)); sleep 1; done
         fi
@@ -119,11 +121,15 @@ on() {
     # The router's awgctl predates header_protection_key and silently drops it,
     # which leaves an AWG 3.x server cutting every handshake. uapipush speaks the
     # same UAPI but understands the newer fields.
+    say "pushing the config to the engine…"
     if grep -qi '^HeaderProtectionKey' "$CONF" && [ -x /usr/bin/uapipush ]; then
-        /usr/bin/uapipush "$SOCK" "$CONF" | grep -q '^errno=0' || { say "FAILED: config push"; return 1; }
+        timeout 15 /usr/bin/uapipush "$SOCK" "$CONF" | grep -q '^errno=0' \
+            || { say "FAILED: the engine did not accept the config (push timed out)"; return 1; }
     else
-        /usr/bin/awgctl push "$SOCK" "$CONF" || { say "FAILED: config push"; return 1; }
+        timeout 15 /usr/bin/awgctl push "$SOCK" "$CONF" \
+            || { say "FAILED: the engine did not accept the config (push timed out)"; return 1; }
     fi
+    say "config applied — waiting for the server to answer…"
 
     # Fail-safe: never divert the LAN into a tunnel that has no handshake. WireGuard
     # retries the handshake every ~5s, so a short wait is normally enough. If it never
@@ -136,7 +142,9 @@ on() {
         i=$((i + 1)); sleep 1
     done
     if [ -z "$hs" ] || [ "$hs" = "0" ]; then
-        say "FAILED: no handshake after ${i}s — LAN left on the raw carrier"
+        say "FAILED: no handshake after ${i}s — that server did not answer. "
+        say "  The config may be old (the server no longer knows this key), or the "
+        say "  server is blocked from this line. LAN left on the raw carrier."
         return 1
     fi
 
@@ -144,7 +152,7 @@ on() {
     # A handshake alone is not proof (the server can answer handshakes and still drop
     # data), and diverting into a dead tunnel would take the whole house offline.
     if ! ping -c2 -W3 -I "$TUN" 8.8.8.8 >/dev/null 2>&1; then
-        say "FAILED: tunnel established but carries no traffic — LAN left on the raw carrier"
+        say "FAILED: the server answered but carries no traffic — LAN left on the raw carrier."
         return 1
     fi
 
@@ -174,8 +182,8 @@ on() {
 off() {
     # Stop the procd service first, otherwise it would respawn the daemon we kill below.
     if [ -z "$AMNEZIAWG_FROM_INIT" ] && [ -x "$INIT" ]; then
-        AMNEZIAWG_FROM_INIT=1 "$INIT" stop >/dev/null 2>&1
-        "$INIT" disable >/dev/null 2>&1
+        timeout 10 env AMNEZIAWG_FROM_INIT=1 "$INIT" stop >/dev/null 2>&1
+        timeout 10 "$INIT" disable >/dev/null 2>&1
     fi
 
     ip route replace default dev "$WAN" table $TABLE 2>/dev/null

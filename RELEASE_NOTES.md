@@ -1,3 +1,16 @@
+## ZLT X28 1.3.1
+
+**No more endless spinner.** Turning the tunnel on ran an SSH command with a two-minute limit, and then a full re-read of the router with no limit at all — so whenever the router was slow, wedged, or off the network, the app looked frozen and the only way out was to quit it. Fixed in four places:
+
+- The app checks the router with a 3-second connection test before it reads anything. If the router is not there, it says so and reads nothing else.
+- Every button that talks to the router refuses to run when the router is unreachable, and says why, instead of starting a command that cannot finish.
+- Turning the tunnel on or off is now limited to 60 seconds. If the router never answers, the spinner ends and you get a sentence saying the router stopped answering.
+- Starting the sing-box engine is limited to 90 seconds, for the same reason.
+
+The router-side script was hardened too, because a wedged `procd` lock could make the start block forever. Its calls to the service manager and its config push now time out, and it prints what it is doing ("pushing the config to the engine…", "config applied — waiting for the server to answer…") so a failure is legible. The "no handshake" message now says what it means: the server did not answer, the config may be stale (the server no longer knows that key), or the server is blocked from this line.
+
+**The current tunnel failure is real, and separate.** With the Racknerd config on the router, the server never answers the handshake; with the old Rabisu config it answers but carries no traffic. The engine itself is fine — it accepts both configs. The fix is to import the config that actually works on the Mac (AmneziaVPN → export/share that server's config) and use it here.
+
 ## ZLT X28 1.3.0
 
 **The router now has its own web page.** Open `http://192.168.70.1/zlt.html` on any phone, tablet or TV browser on the Wi-Fi and you get the same controls as the Mac app's VPN screen: whether the VPN is on, one big switch, the configs and links on the router, and Use/Delete for each. Nothing to install on the phone, and it keeps working when the Mac is asleep or off.

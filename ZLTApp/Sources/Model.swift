@@ -602,6 +602,16 @@ final class AppModel: ObservableObject {
         defer { refreshing = false }
         if reach != .reachable { reach = .checking }
 
+        // A 3-second TCP check first. Without it, every read of a router that is
+        // not there costs a 20-second panel timeout plus a 45-second SSH timeout,
+        // and the whole window looks frozen.
+        guard await Self.routerAnswers() else {
+            reach = .unreachable
+            provisioned = false
+            lastRefresh = Date()
+            return
+        }
+
         let panel = PanelClient(password: password)
         var info = CarrierInfo()
         var panelOK = false
@@ -685,6 +695,14 @@ final class AppModel: ObservableObject {
         if webAppReady == false, !repairingWebApp {
             Task { await self.repairWebApp() }
         }
+    }
+
+    /// True when the router answers a TCP connection within a few seconds.
+    static func routerAnswers() async -> Bool {
+        let result = await Shell.run("/usr/bin/nc",
+                                     ["-z", "-G", "3", "192.168.70.1", "80"],
+                                     timeout: 6)
+        return result.ok
     }
 
     // MARK: - The phone page that lives on the router
@@ -900,21 +918,44 @@ final class AppModel: ObservableObject {
         else { await runSB("restart", label: "Restarting the link tunnel…") }
     }
 
+    /// Every action that talks to the router asks this first. A missing router
+    /// used to mean a minute of spinner per press.
+    private func routerMissing() -> Bool {
+        guard reach == .reachable else {
+            notice = "This Mac cannot see the router, so nothing was sent. "
+                   + "Join the ZLT X28 Wi-Fi (192.168.70.x) and try again."
+            return true
+        }
+        return false
+    }
+
     private func runVPN(_ verb: String, label: String) async {
         guard !setupRunning else { return }
+        guard reach == .reachable else {
+            notice = "This Mac cannot see the router, so nothing was sent. "
+                   + "Join the ZLT X28 Wi-Fi (192.168.70.x) and try again."
+            return
+        }
         busy = label
         notice = nil
-        let result = await RouterSSH.run("/usr/bin/vpn awg \(verb)", timeout: 120)
+        // 60 seconds is already generous: a working start finishes in about 20.
+        // If the router stops answering, the user gets an answer instead of a spinner.
+        let result = await RouterSSH.run("/usr/bin/vpn awg \(verb)", timeout: 60)
         busy = nil
         if !result.ok {
-            notice = result.trimmed.isEmpty
-                ? "The router did not answer. Is this Mac still on the X28 Wi-Fi?"
-                : result.trimmed
+            if result.trimmed.isEmpty {
+                notice = "The router stopped answering while turning the tunnel "
+                       + "\(verb == "on" ? "on" : "off"). Check that this Mac is still on "
+                       + "the X28 Wi-Fi, then try again."
+            } else {
+                notice = result.trimmed
+            }
         }
         await refresh()
     }
 
     func useConfig(_ name: String) async {
+        if routerMissing() { return }
         busy = "Switching to \(name)…"
         notice = nil
         let wasOn = vpnOn
@@ -930,6 +971,7 @@ final class AppModel: ObservableObject {
     /// copies of it, and — if it is the one in use — the live `awg0.conf` too,
     /// after stopping the tunnel. Nothing is kept "in case".
     func removeConfig(_ name: String) async {
+        if routerMissing() { return }
         busy = "Deleting \(name)…"
         notice = nil
         let wasActive = (name == currentConfig)
@@ -962,9 +1004,11 @@ final class AppModel: ObservableObject {
 
     private func runSB(_ verb: String, label: String) async {
         guard !setupRunning else { return }
+        if routerMissing() { return }
         busy = label
         notice = nil
-        let result = await RouterSSH.run("/usr/bin/vpn sb \(verb)", timeout: 150)
+        // sing-box legitimately takes longer than the AmneziaWG engine to settle.
+        let result = await RouterSSH.run("/usr/bin/vpn sb \(verb)", timeout: 90)
         busy = nil
         if !result.ok {
             notice = result.trimmed.isEmpty
@@ -987,6 +1031,7 @@ final class AppModel: ObservableObject {
     }
 
     func importLinks(_ text: String) async {
+        if routerMissing() { return }
         guard sb.installed else {
             notice = "The link engine is not on this router yet. Open Router setup "
                    + "and run setup once — it installs it."
@@ -1159,6 +1204,7 @@ final class AppModel: ObservableObject {
     }
 
     func useLink(_ name: String) async {
+        if routerMissing() { return }
         busy = "Switching to \(name)…"
         notice = nil
         let wasOn = sb.isOn
@@ -1175,6 +1221,7 @@ final class AppModel: ObservableObject {
     /// copy already moved to the router's trash folder, and the tunnel itself
     /// when this was the link carrying traffic.
     func removeLink(_ name: String) async {
+        if routerMissing() { return }
         busy = "Deleting \(name)…"
         notice = nil
         let wasActive = (name == sb.active)
@@ -1206,6 +1253,7 @@ final class AppModel: ObservableObject {
     }
 
     func importConfig(from url: URL) async {
+        if routerMissing() { return }
         let stem = url.deletingPathExtension().lastPathComponent
             .replacingOccurrences(of: " ", with: "-")
         let safe = String(stem.filter { $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" })
