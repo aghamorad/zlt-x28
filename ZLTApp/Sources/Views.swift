@@ -470,6 +470,13 @@ struct VPNView: View {
     @State private var confirmRestart = false
     @State private var pasted = ""
     @State private var isDropTarget = false
+    @State private var selection: Set<String> = []
+    @State private var selectAnchor: String?
+    @State private var renaming: ConfigEntry?
+    @State private var renameText = ""
+    @State private var confirmBulkDelete = false
+    @State private var splitUI = false
+    @State private var killUI = false
 
     var body: some View {
         PageScroll {
@@ -543,6 +550,31 @@ struct VPNView: View {
         .onDrop(of: [.fileURL], isTargeted: $isDropTarget) { providers in
             handleDrop(providers)
         }
+        .alert("Rename config", isPresented: Binding(
+            get: { renaming != nil },
+            set: { if !$0 { renaming = nil } })) {
+            TextField("Name", text: $renameText)
+            Button("Cancel", role: .cancel) { renaming = nil }
+            Button("Rename") {
+                let old = renaming?.name
+                let new = renameText
+                renaming = nil
+                if let old { Task { await model.renameConfig(old, to: new) } }
+            }
+        } message: {
+            Text("Letters, digits, - and _ only. The tunnel is not interrupted.")
+        }
+        .alert("Delete \(selection.count) configs?", isPresented: $confirmBulkDelete) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                let names = model.configs.map(\.name).filter { selection.contains($0) }
+                selection.removeAll()
+                Task { await model.removeConfigs(names) }
+            }
+        } message: {
+            Text("They are removed from the router for good, together with any older "
+                 + "copies. If one is in use, the tunnel stops first.")
+        }
         .alert("Delete this config?",
                isPresented: Binding(
                     get: { pendingRemoval != nil },
@@ -590,9 +622,7 @@ struct VPNView: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Routing").font(.headline)
 
-                Toggle(isOn: Binding(
-                    get: { model.status.splitOn },
-                    set: { value in Task { await model.setSplitTunnel(value) } })) {
+                Toggle(isOn: $splitUI) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Send Iranian sites direct")
                         Text("Their traffic skips the tunnel and goes out the carrier, "
@@ -604,12 +634,14 @@ struct VPNView: View {
                 }
                 .toggleStyle(.switch)
                 .disabled(model.busy != nil || !model.provisioned)
+                .onChange(of: splitUI) { value in
+                    guard value != model.status.splitOn else { return }
+                    Task { await model.setSplitTunnel(value) }
+                }
 
                 Divider()
 
-                Toggle(isOn: Binding(
-                    get: { model.status.killOn },
-                    set: { value in Task { await model.setKillSwitch(value) } })) {
+                Toggle(isOn: $killUI) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Kill switch")
                         Text("If the tunnel drops, the internet stops instead of "
@@ -621,7 +653,17 @@ struct VPNView: View {
                 }
                 .toggleStyle(.switch)
                 .disabled(model.busy != nil || !model.provisioned)
+                .onChange(of: killUI) { value in
+                    guard value != model.status.killOn else { return }
+                    Task { await model.setKillSwitch(value) }
+                }
             }
+            .onAppear {
+                splitUI = model.status.splitOn
+                killUI = model.status.killOn
+            }
+            .onChange(of: model.status.splitOn) { splitUI = $0 }
+            .onChange(of: model.status.killOn) { killUI = $0 }
         }
     }
 
@@ -718,7 +760,9 @@ struct VPNView: View {
                         }
                     }
                 } else {
-                    Text("The VPN engine is not installed yet. Open Router setup.")
+                    Text(model.reach == .unreachable
+                         ? "This Mac cannot see the router. Join the ZLT X28 Wi-Fi, then press refresh."
+                         : "The VPN engine is not installed yet. Open Router setup.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -753,6 +797,24 @@ struct VPNView: View {
                 HStack {
                     Text("Configs on the router").font(.headline)
                     Spacer()
+                    if !selection.isEmpty {
+                        Text("\(selection.count) selected")
+                            .font(.callout.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        Button(role: .destructive) {
+                            confirmBulkDelete = true
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                        .disabled(model.busy != nil)
+                        Button("Clear") { selection.removeAll() }
+                            .buttonStyle(.borderless)
+                    } else if !model.configs.isEmpty {
+                        Button("Select all") {
+                            selection = Set(model.configs.map(\.name))
+                        }
+                        .buttonStyle(.borderless)
+                    }
                     Button {
                         openPanel()
                     } label: {
@@ -763,7 +825,9 @@ struct VPNView: View {
 
                 if model.configs.isEmpty {
                     Text(model.provisioned
-                         ? "No configs yet. Add the .conf file from your VPN server."
+                         ? (model.reach == .unreachable
+                            ? "This Mac cannot see the router."
+                            : "No configs yet. Add the .conf file from your VPN server.")
                          : "Setup the router first, then add a config.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -795,6 +859,7 @@ struct VPNView: View {
 
     private func configRow(_ entry: ConfigEntry) -> some View {
         let active = entry.name == model.currentConfig
+        let picked = selection.contains(entry.name)
         return HStack(spacing: 12) {
             Image(systemName: active ? "largecircle.fill.circle" : "circle")
                 .foregroundStyle(active ? Color.accentColor : Color.secondary)
@@ -813,6 +878,15 @@ struct VPNView: View {
             }
             .disabled(active || model.busy != nil)
             Button {
+                renaming = entry
+                renameText = entry.name
+            } label: {
+                Image(systemName: "pencil")
+            }
+            .buttonStyle(.borderless)
+            .help("Rename this config")
+            .disabled(model.busy != nil)
+            Button {
                 pendingRemoval = entry
             } label: {
                 Image(systemName: "trash")
@@ -821,7 +895,31 @@ struct VPNView: View {
             .help("Delete this config from the router")
             .disabled(model.busy != nil)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 8)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(picked ? Color.accentColor.opacity(0.14) : Color.clear))
+        .contentShape(Rectangle())
+        .onTapGesture { selectConfig(entry.name) }
+        .onDeleteCommand { if !selection.isEmpty { confirmBulkDelete = true } }
+    }
+
+    /// ⌘-click toggles one row, ⇧-click selects a range, a plain click selects
+    /// just that row — the way Finder works.
+    private func selectConfig(_ name: String) {
+        let flags = NSEvent.modifierFlags
+        if flags.contains(.command) {
+            if selection.contains(name) { selection.remove(name) } else { selection.insert(name) }
+            selectAnchor = name
+        } else if flags.contains(.shift), let anchor = selectAnchor,
+                  let a = model.configs.firstIndex(where: { $0.name == anchor }),
+                  let b = model.configs.firstIndex(where: { $0.name == name }) {
+            let range = a <= b ? a...b : b...a
+            selection = Set(model.configs[range].map(\.name))
+        } else {
+            selection = [name]
+            selectAnchor = name
+        }
     }
 
     // MARK: Links

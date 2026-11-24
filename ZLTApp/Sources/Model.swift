@@ -1013,6 +1013,46 @@ final class AppModel: ObservableObject {
         await refresh()
     }
 
+    /// Renames a config on the router. The active tunnel is untouched: the live
+    /// `awg0.conf` is a copy, and the "in use" marker follows the file contents,
+    /// so a renamed active config still reads as the one in use.
+    func renameConfig(_ name: String, to newName: String) async {
+        if routerMissing() { return }
+        let cleaned = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: " ", with: "-")
+        guard !cleaned.isEmpty else {
+            notice = "A config needs a name."
+            return
+        }
+        guard cleaned.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else {
+            notice = "Use letters, digits, - or _ only. No spaces or slashes."
+            return
+        }
+        guard cleaned != name else { return }
+        guard !configs.contains(where: { $0.name == cleaned }) else {
+            notice = "There is already a config called \(cleaned). Pick another name."
+            return
+        }
+        busy = "Renaming \(name)…"
+        notice = nil
+        let result = await RouterSSH.run(
+            "mv '/etc/amneziawg/awg0.conf.\(name)' '/etc/amneziawg/awg0.conf.\(cleaned)' "
+            + "&& echo RENAMED", timeout: 30)
+        busy = nil
+        notice = result.output.contains("RENAMED")
+            ? "\(name) is now called \(cleaned)."
+            : "Could not rename \(name): \(result.trimmed)"
+        await refresh()
+    }
+
+    /// Deletes several configs in one go. Each deletion is the same permanent
+    /// one as the single trash button.
+    func removeConfigs(_ names: [String]) async {
+        for name in names {
+            await removeConfig(name)
+        }
+    }
+
     /// Deletes the config outright: the named file, any older `.disabled-*`
     /// copies of it, and — if it is the one in use — the live `awg0.conf` too,
     /// after stopping the tunnel. Nothing is kept "in case".
