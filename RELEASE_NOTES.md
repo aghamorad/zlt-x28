@@ -8,6 +8,8 @@
 
 Both have a switch on the VPN page in the Mac app and on the router's phone page.
 
+**Configs can now be picked the normal way.** Click a row to select it, ⌘-click to add or remove one, ⇧-click to take a range, **Select all** for the lot. With something selected, **Delete** removes them after one confirmation, and the row background shows what is picked. **Delete** on the keyboard works too. Each row also has a pencil: rename a config without touching the tunnel — the name is validated (letters, digits, - and _), duplicates are refused, and an in-use config stays in use under its new name.
+
 **Engines updated:**
 - The AmneziaWG engine was rebuilt from current source with 3.1 support (this is what made your Rabisu config work in 1.3.2).
 - sing-box went from 1.14.3 to **1.14.4**, the current release, installed on the router and shipped in the app.
