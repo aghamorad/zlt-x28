@@ -53,8 +53,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleDisplayName</key>           <string>ZLT X28</string>
     <key>CFBundleIconFile</key>              <string>AppIcon.icns</string>
     <key>CFBundlePackageType</key>           <string>APPL</string>
-    <key>CFBundleShortVersionString</key>    <string>1.3.1</string>
-    <key>CFBundleVersion</key>               <string>7</string>
+    <key>CFBundleShortVersionString</key>    <string>1.3.2</string>
+    <key>CFBundleVersion</key>               <string>8</string>
     <key>ZLTBuildCommit</key>                <string>${COMMIT}</string>
     <key>ZLTBuildDate</key>                  <string>${BUILD_DATE}</string>
     <key>LSMinimumSystemVersion</key>        <string>13.0</string>

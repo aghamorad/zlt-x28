@@ -1252,6 +1252,48 @@ final class AppModel: ObservableObject {
         await refresh()
     }
 
+    /// Accepts anything a user can paste: one or more share links, one or more
+    /// Amnezia `vpn://` server links, or a mixture of the two.
+    func importPasted(_ text: String) async {
+        let lines = text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        var shareLinks: [String] = []
+        for line in lines {
+            if line.lowercased().hasPrefix("vpn://") {
+                await importAmneziaLink(line)
+            } else {
+                shareLinks.append(line)
+            }
+        }
+        if !shareLinks.isEmpty {
+            await importLinks(shareLinks.joined(separator: "\n"))
+        }
+    }
+
+    /// Amnezia's `vpn://` link carries a whole client config inside it. Decode it,
+    /// write it as a normal .conf on this Mac, and import it the usual way.
+    func importAmneziaLink(_ text: String) async {
+        if routerMissing() { return }
+        guard let config = AmneziaLink.configText(fromPastable: text) else {
+            notice = "That vpn:// link could not be read. It may be cut off — "
+                   + "copy the whole thing, starting with vpn:// and ending with the last letter."
+            return
+        }
+        let name = AmneziaLink.suggestedName(fromPastable: text)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(name + ".conf")
+        do {
+            try config.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            notice = "The link was read, but the config could not be written: \(error.localizedDescription)"
+            return
+        }
+        await importConfig(from: url)
+        try? FileManager.default.removeItem(at: url)
+        engine = .amnezia
+    }
+
     func importConfig(from url: URL) async {
         if routerMissing() { return }
         let stem = url.deletingPathExtension().lastPathComponent

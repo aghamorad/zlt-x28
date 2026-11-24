@@ -469,6 +469,7 @@ struct VPNView: View {
     @State private var pendingLinkRemoval: LinkEntry?
     @State private var confirmRestart = false
     @State private var pasted = ""
+    @State private var isDropTarget = false
 
     var body: some View {
         PageScroll {
@@ -481,6 +482,18 @@ struct VPNView: View {
 
             engineCard
             tunnelCard
+
+            if isDropTarget {
+                HStack(spacing: 10) {
+                    Image(systemName: "arrow.down.doc")
+                    Text("Drop the .conf file to add it to the router")
+                        .font(.callout.weight(.medium))
+                    Spacer()
+                }
+                .padding(14)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.14)))
+            }
 
             switch model.engine {
             case .amnezia:
@@ -525,6 +538,9 @@ struct VPNView: View {
                             + "never changes which link the Wi-Fi is using.",
                         icon: "questionmark.circle")
             }
+        }
+        .onDrop(of: [.fileURL], isTargeted: $isDropTarget) { providers in
+            handleDrop(providers)
         }
         .alert("Delete this config?",
                isPresented: Binding(
@@ -722,6 +738,20 @@ struct VPNView: View {
         }
     }
 
+    /// Drag a .conf in from Finder — one or many. Each is copied to the router
+    /// through the same import path as the Add config button.
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        let fileProviders = providers.filter { $0.hasItemConformingToTypeIdentifier("public.file-url") }
+        guard !fileProviders.isEmpty else { return false }
+        for provider in fileProviders {
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url, url.pathExtension.lowercased() == "conf" else { return }
+                Task { await model.importConfig(from: url) }
+            }
+        }
+        return true
+    }
+
     private func configRow(_ entry: ConfigEntry) -> some View {
         let active = entry.name == model.currentConfig
         return HStack(spacing: 12) {
@@ -772,7 +802,7 @@ struct VPNView: View {
                     .disabled(model.links.isEmpty || model.busy != nil)
                 }
 
-                TextField("Paste a link here — vless://, vmess://, trojan://, ss://, hysteria2://",
+                TextField("Paste a link — vless://, vmess://, trojan://, ss://, hysteria2://, or an Amnezia vpn:// link",
                           text: $pasted, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .font(.callout.monospaced())
@@ -805,7 +835,7 @@ struct VPNView: View {
                     Button {
                         let text = pasted
                         pasted = ""
-                        Task { await model.importLinks(text) }
+                        Task { await model.importPasted(text) }
                     } label: {
                         Label("Add links", systemImage: "plus")
                             .frame(minHeight: 36)

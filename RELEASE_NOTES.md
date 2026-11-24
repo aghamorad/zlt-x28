@@ -1,3 +1,16 @@
+## ZLT X28 1.3.2
+
+**The tunnel works again, and Amnezia links and draggable files are in.**
+
+The reason nothing would connect was a version gap, not a dead server. The new Amnezia servers speak **AmneziaWG 3.1**, whose handshakes carry a `HeaderProtectionKey`. The engine installed on the router was older and refused that field outright (`errno=-22`), so the config could never even be loaded — the app reported "no handshake" because that was the last thing it could see. I rebuilt the engine from current source with 3.1 support, installed it on the router, and switched to the config carried inside your new Rabisu `vpn://` link. It now handshakes, passes traffic, and the LAN exits through `45.155.125.63`. The new engine ships inside the app, so a fresh Router setup installs it too.
+
+Two of the three interface requests are in:
+
+- **Paste an Amnezia `vpn://` link** into the link box and it becomes a config. The link is decoded on this Mac (base64 → zlib → JSON), the client config inside it is extracted, its range values (`25-35`) and on/off words are turned into numbers the engine accepts, and it is imported like any other file. Nothing is sent anywhere to do this.
+- **Drag `.conf` files onto the VPN page** — one or many — and each is copied to the router. The page shows a drop target while you drag.
+
+Not yet: ⌘-click / ⇧-click multi-select with a Delete key. That needs the config and link lists rebuilt around a selection model, and I would rather do it deliberately than ship a half-working list at the end of a long night.
+
 ## ZLT X28 1.3.1
 
 **No more endless spinner.** Turning the tunnel on ran an SSH command with a two-minute limit, and then a full re-read of the router with no limit at all — so whenever the router was slow, wedged, or off the network, the app looked frozen and the only way out was to quit it. Fixed in four places:
