@@ -482,6 +482,7 @@ struct VPNView: View {
 
             engineCard
             tunnelCard
+            routingCard
 
             if isDropTarget {
                 HStack(spacing: 10) {
@@ -583,6 +584,46 @@ struct VPNView: View {
     }
 
     // MARK: Engine
+
+    private var routingCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Routing").font(.headline)
+
+                Toggle(isOn: Binding(
+                    get: { model.status.splitOn },
+                    set: { value in Task { await model.setSplitTunnel(value) } })) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Send Iranian sites direct")
+                        Text("Their traffic skips the tunnel and goes out the carrier, "
+                             + "the way it does without a VPN. Everything else still "
+                             + "uses the tunnel.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+                .disabled(model.busy != nil || !model.provisioned)
+
+                Divider()
+
+                Toggle(isOn: Binding(
+                    get: { model.status.killOn },
+                    set: { value in Task { await model.setKillSwitch(value) } })) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Kill switch")
+                        Text("If the tunnel drops, the internet stops instead of "
+                             + "falling back to the carrier. Iranian sites above stay "
+                             + "reachable either way.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+                .disabled(model.busy != nil || !model.provisioned)
+            }
+        }
+    }
 
     private var engineCard: some View {
         Card {

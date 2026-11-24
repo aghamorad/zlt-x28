@@ -48,6 +48,11 @@ say() { echo "vpn-keepalive: $*"; }
 fail=0
 while :; do
     sleep 20
+    # Split tunnelling rules and the kill switch are enforced every pass: the
+    # vendor's wan manager rewrites firewall/route state, and a reboot clears
+    # the ipset.
+    /usr/bin/vpn split ensure >/dev/null 2>&1
+    /usr/bin/vpn kill enforce >/dev/null 2>&1
     if pgrep -f "amneziawg-go $TUN" >/dev/null 2>&1 && healthy; then
         fail=0
         routed || divert

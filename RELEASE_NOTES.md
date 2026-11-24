@@ -1,3 +1,22 @@
+## ZLT X28 1.4.0
+
+**Split tunnelling and a kill switch, and the engines underneath are current.**
+
+**Split tunnelling** — Iranian destinations now leave through the carrier instead of the tunnel, the way Amnezia's own exclude list works. A list of 1,747 Iranian networks ships with the app; every device on the Wi-Fi gets the bypass, so Digikala, Snapp, Divar and bank sites stop taking the long way around. Implemented on the router with an ipset, a firewall mark on LAN traffic and one policy rule ahead of the tunnel's table. The list is refreshed whenever setup runs.
+
+**Kill switch** — with it on, if the tunnel drops the internet stops instead of quietly falling back to the carrier. Iranian/bypass traffic keeps working, because the block only applies to traffic that was supposed to be tunnelled. The watchdog enforces it every 20 seconds, so it survives a daemon restart, and turning the VPN off deliberately never leaves the house offline.
+
+Both have a switch on the VPN page in the Mac app and on the router's phone page.
+
+**Engines updated:**
+- The AmneziaWG engine was rebuilt from current source with 3.1 support (this is what made your Rabisu config work in 1.3.2).
+- sing-box went from 1.14.3 to **1.14.4**, the current release, installed on the router and shipped in the app.
+- The Iranian range list is new and installed with setup.
+
+Verified on the router: 1,747 prefixes loaded, the mark rule and policy rule present, a marked lookup following the carrier while unmarked traffic follows the tunnel; the kill switch's block rule appearing when the tunnel is down and disappearing when it returns; and both toggles changing the live router from the app and the phone page.
+
+One honest limit: the bypass is by **IP range**, not by domain name. Iranian sites hosted on Iranian networks bypass correctly; an Iranian site served from a foreign CDN will still go through the tunnel. The router's resolver is built without ipset support, so domain-based classification would mean replacing it — a separate job.
+
 ## ZLT X28 1.3.2
 
 **The tunnel works again, and Amnezia links and draggable files are in.**

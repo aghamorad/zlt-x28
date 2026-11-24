@@ -141,6 +141,10 @@ ln -sf "$PROGRAM_DIR/sing-box" /usr/bin/sing-box
 place singbox.init /etc/init.d/singbox 755 || exit 1
 mkdir -p /data/zltx28/singbox/links /data/zltx28/singbox/trash
 
+# Iranian networks for split tunnelling: shipped with the app, refreshed by it.
+mkdir -p /data/zltx28/split
+place split/ir.zone /data/zltx28/split/ir.zone 644 || echo "Note: the Iranian list was not installed"
+
 # The phone page, served by the router's own web server at /zlt/. Small files,
 # and the app puts them back by itself after a firmware update wipes /www.
 echo "Installing the phone web page…"

@@ -62,6 +62,8 @@ struct TunnelStatus: Equatable {
     var rxBytes: Int64 = 0
     var exitIP = "—"
     var config = "—"
+    var splitOn = false
+    var killOn = false
 
     var isOn: Bool { daemonRunning && routeThroughTunnel }
 
@@ -887,6 +889,10 @@ final class AppModel: ObservableObject {
                     let tail = line[range.upperBound...]
                     parsed.rxBytes = Int64(tail.prefix { $0.isNumber }) ?? 0
                 }
+            } else if line.hasPrefix("split") {
+                parsed.splitOn = line.contains("on")
+            } else if line.hasPrefix("kill") {
+                parsed.killOn = line.contains("on")
             } else if line.hasPrefix("exit IP") {
                 let value = Self.value(after: ":", in: line)
                 parsed.exitIP = (value.isEmpty || value.contains("no answer")) ? "—" : value
@@ -902,6 +908,46 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: - Tunnel actions
+
+    /// Iranian destinations go straight out the carrier instead of the tunnel.
+    func setSplitTunnel(_ on: Bool) async {
+        if routerMissing() { return }
+        busy = on ? "Turning split tunnelling on…" : "Turning split tunnelling off…"
+        notice = nil
+        let result = await RouterSSH.run("/usr/bin/vpn split \(on ? "on" : "off")",
+                                         timeout: 90)
+        busy = nil
+        if !result.ok {
+            notice = result.trimmed.isEmpty
+                ? "The router did not answer while changing split tunnelling."
+                : result.trimmed
+        } else {
+            notice = on
+                ? "Split tunnelling is on: Iranian sites go direct, everything else through the tunnel."
+                : "Split tunnelling is off: everything goes through the tunnel."
+        }
+        await refresh()
+    }
+
+    /// Fail closed instead of falling back to the carrier when the tunnel drops.
+    func setKillSwitch(_ on: Bool) async {
+        if routerMissing() { return }
+        busy = on ? "Turning the kill switch on…" : "Turning the kill switch off…"
+        notice = nil
+        let result = await RouterSSH.run("/usr/bin/vpn kill \(on ? "on" : "off")",
+                                         timeout: 45)
+        busy = nil
+        if !result.ok {
+            notice = result.trimmed.isEmpty
+                ? "The router did not answer while changing the kill switch."
+                : result.trimmed
+        } else {
+            notice = on
+                ? "Kill switch on: if the tunnel drops, internet stops until it is back."
+                : "Kill switch off: if the tunnel drops, traffic goes direct."
+        }
+        await refresh()
+    }
 
     func turnOn() async {
         if engine == .amnezia { await runVPN("on", label: "Starting the tunnel…") }

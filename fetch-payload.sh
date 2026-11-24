@@ -8,8 +8,8 @@
 # instead of silently shipping something untested.
 set -euo pipefail
 
-VERSION="1.14.3"
-SHA256="beefed1a2ca95c6bd1719c2177af1009e9bef215294f71a7e187b66cbafc85e0"
+VERSION="1.14.4"
+SHA256="709d6670c49019955e498872bc39b954461517ad8009968d1cf5592e9087b563"
 URL="https://github.com/SagerNet/sing-box/releases/download/v${VERSION}/sing-box-${VERSION}-linux-arm64-musl.tar.gz"
 
 cd "$(dirname "$0")"

@@ -60,6 +60,23 @@
   </div>
 
   <div class="card">
+    <div class="row" style="margin-bottom:12px">
+      <div>
+        <div class="name">Iranian sites go direct</div>
+        <div class="ep">Skip the tunnel for Iran's networks — local sites stay fast.</div>
+      </div>
+      <button class="btn" style="width:auto;min-height:48px;padding:12px 18px" id="splitBtn" onclick="toggleSplit()">—</button>
+    </div>
+    <div class="row">
+      <div>
+        <div class="name">Kill switch</div>
+        <div class="ep">If the tunnel drops, stop the internet instead of going direct.</div>
+      </div>
+      <button class="btn" style="width:auto;min-height:48px;padding:12px 18px" id="killBtn" onclick="toggleKill()">—</button>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="seg">
       <button id="tabConfigs" class="active" onclick="setTab('configs')">Configs</button>
       <button id="tabLinks" onclick="setTab('links')">Links</button>
@@ -163,6 +180,11 @@
       b.className = 'btn primary';
     }
 
+    var sb = document.getElementById('splitBtn');
+    var kb = document.getElementById('killBtn');
+    if (sb) { sb.textContent = Number(state.split) ? 'Turn off' : 'Turn on'; }
+    if (kb) { kb.textContent = Number(state.kill) ? 'Turn off' : 'Turn on'; }
+
     renderConfigs();
     renderLinks();
   }
@@ -218,6 +240,16 @@
     });
   }
 
+  function toggleSplit() {
+    var on = Number(state.split) === 1;
+    act(on ? 'split_off' : 'split_on', null, on ? 'Turning it off…' : 'Turning it on…');
+  }
+
+  function toggleKill() {
+    var on = Number(state.kill) === 1;
+    act(on ? 'kill_off' : 'kill_on', null, on ? 'Turning it off…' : 'Turning it on…');
+  }
+
   function flip() {
     if (Number(state.awg.on) === 1) {
       busy(true, 'Turning off…');
@@ -265,6 +297,8 @@
 
   window.setTab = setTab;
   window.flip = flip;
+  window.toggleSplit = toggleSplit;
+  window.toggleKill = toggleKill;
   window.load = load;
 
   load();

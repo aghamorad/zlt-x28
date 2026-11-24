@@ -67,6 +67,8 @@ sb_active() {
 status_json() {
     on=0; awg_is_on && on=1
     sb=0; sb_is_on && sb=1
+    sp=0; /usr/bin/vpn awg status 2>/dev/null | grep -q '^split *: *on' && sp=1
+    kl=0; /usr/bin/vpn awg status 2>/dev/null | grep -q '^kill *: *on' && kl=1
     active=$(awg_active)
     sblink=$(sb_active)
     exitip=$(/usr/bin/vpn awg status 2>/dev/null | sed -n 's/^exit IP *: *//p' | head -n 1)
@@ -94,6 +96,7 @@ status_json() {
     header
     printf '{"awg":{"on":%s,"config":"%s","exit":"%s"},' "$on" "$(esc "$active")" "$(esc "$exitip")"
     printf '"sb":{"on":%s,"link":"%s"},' "$sb" "$(esc "$sblink")"
+    printf '"split":%s,"kill":%s,' "$sp" "$kl"
     printf '"configs":[%s],"links":[%s]}\n' "${confs%,}" "${links%,}"
 }
 
@@ -133,6 +136,22 @@ case "$ACT" in
         fi
         rm -f "/etc/amneziawg/awg0.conf.$name" /etc/amneziawg/awg0.conf."$name".disabled-*
         reply true "$name is deleted from the router."
+        ;;
+    split_on)
+        out=$(timeout 40 /usr/bin/vpn split on 2>&1)
+        reply true "$(printf '%s' "$out" | tail -n 1)"
+        ;;
+    split_off)
+        out=$(/usr/bin/vpn split off 2>&1)
+        reply true "$(printf '%s' "$out" | tail -n 1)"
+        ;;
+    kill_on)
+        out=$(/usr/bin/vpn kill on 2>&1)
+        reply true "$(printf '%s' "$out" | tail -n 1)"
+        ;;
+    kill_off)
+        out=$(/usr/bin/vpn kill off 2>&1)
+        reply true "$(printf '%s' "$out" | tail -n 1)"
         ;;
     sb_on)
         out=$(/usr/bin/vpn sb on 2>&1)

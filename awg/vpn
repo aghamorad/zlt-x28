@@ -33,6 +33,15 @@ SB_TUN=sb0
 SB_INIT=/etc/init.d/singbox
 SB_PORT=18080
 
+# Split tunnelling: Iranian destinations bypass the tunnel and go out the
+# carrier, the way Amnezia's own "exclude sites" list does. Implemented with an
+# ipset, a firewall mark on LAN traffic, and one policy rule ahead of 17000.
+SPLIT_SET=ir_bypass
+SPLIT_ZONE=/data/zltx28/split/ir.zone
+SPLIT_FLAG=/data/zltx28/split/enabled
+KILL_FLAG=/data/zltx28/killswitch
+WANTED_FLAG=/data/zltx28/wanted
+
 # rc.common holds /var/lock/procd_<name>.lock on fd 1000 and every child inherits
 # it; a long-lived child (dotbridge, started from here) then keeps the flock held
 # and every later init-script call blocks in procd_lock. Drop our copy.
@@ -157,6 +166,8 @@ on() {
     fi
 
     ip route replace default dev "$TUN" table $TABLE
+    mkdir -p "$(dirname "$WANTED_FLAG")"; echo 1 > "$WANTED_FLAG"
+    kill_block_off
 
     iptables -t nat -C POSTROUTING -o "$TUN" -j MASQUERADE 2>/dev/null || \
         iptables -t nat -A POSTROUTING -o "$TUN" -j MASQUERADE
@@ -186,6 +197,8 @@ off() {
         timeout 10 "$INIT" disable >/dev/null 2>&1
     fi
 
+    echo 0 > "$WANTED_FLAG" 2>/dev/null
+    kill_block_off
     ip route replace default dev "$WAN" table $TABLE 2>/dev/null
     ip route del 1.1.1.1/32 dev "$TUN" 2>/dev/null
     ip route del 100.64.0.1/32 dev "$TUN" 2>/dev/null
@@ -211,6 +224,8 @@ status() {
     if running; then say "daemon   : running"; else say "daemon   : stopped"; fi
     say "config   : $(active_conf)"
     say "boot     : $(boot_state)  (comes back after a reboot only if enabled)"
+    split_status
+    kill_status
     ip route show table $TABLE 2>/dev/null | sed 's/^/route    : /'
     if [ -S "$SOCK" ]; then
         /usr/bin/awgctl show "$SOCK" 2>/dev/null | \
@@ -448,7 +463,80 @@ sb_status() {
     fi
 }
 
-sb_usage() {
+sb_
+# ---- split tunnelling -------------------------------------------------------
+split_rule_present() {
+    iptables -t mangle -C PREROUTING -i br0 -m set --match-set "$SPLIT_SET" dst \
+        -j MARK --set-mark 0x100 2>/dev/null
+}
+split_rule_on() {
+    split_rule_present || iptables -t mangle -A PREROUTING -i br0 \
+        -m set --match-set "$SPLIT_SET" dst -j MARK --set-mark 0x100
+}
+split_rule_off() {
+    while split_rule_present; do
+        iptables -t mangle -D PREROUTING -i br0 -m set --match-set "$SPLIT_SET" dst \
+            -j MARK --set-mark 0x100 2>/dev/null || break
+    done
+}
+split_route_present() { ip rule show 2>/dev/null | grep -q "fwmark 0x100 lookup main"; }
+split_route_on() { split_route_present || ip rule add fwmark 0x100 lookup main priority 16999; }
+split_route_off() {
+    while split_route_present; do ip rule del priority 16999 2>/dev/null || break; done
+}
+split_count() { ipset list "$SPLIT_SET" 2>/dev/null | grep -c '^[0-9]'; }
+split_load() {
+    ipset create "$SPLIT_SET" hash:net -exist 2>/dev/null
+    [ -f "$SPLIT_ZONE" ] || return 0
+    # Re-loading ~1,700 prefixes takes a few seconds, so only do it when the set
+    # is missing or nearly empty (a reboot clears ipsets).
+    [ "$(split_count)" -ge 100 ] && return 0
+    while read -r cidr; do
+        case "$cidr" in ""|"#"*) continue ;; esac
+        ipset add "$SPLIT_SET" "$cidr" -exist 2>/dev/null
+    done < "$SPLIT_ZONE"
+}
+split_apply() { split_load; split_rule_on; split_route_on; }
+split_enabled() { [ "$(cat "$SPLIT_FLAG" 2>/dev/null)" = "1" ]; }
+split_on()  { mkdir -p "$(dirname "$SPLIT_FLAG")"; echo 1 > "$SPLIT_FLAG"; split_apply;
+              say "split tunnelling ON  ($(split_count) Iranian networks go direct)"; }
+split_off() { split_rule_off; split_route_off; echo 0 > "$SPLIT_FLAG";
+              say "split tunnelling OFF (everything goes through the tunnel)"; }
+split_ensure() { split_enabled && split_apply; }
+split_status() {
+    if split_enabled; then say "split    : on  ($(split_count) Iranian networks)";
+    else say "split    : off"; fi
+}
+
+# ---- kill switch ------------------------------------------------------------
+kill_block_present() {
+    iptables -C FORWARD -i br0 -o "$WAN" -m mark ! --mark 0x100 -j REJECT 2>/dev/null
+}
+kill_block_off() {
+    while kill_block_present; do
+        iptables -D FORWARD -i br0 -o "$WAN" -m mark ! --mark 0x100 -j REJECT 2>/dev/null || break
+    done
+}
+kill_block_on() {
+    kill_block_present || iptables -I FORWARD 1 -i br0 -o "$WAN" \
+        -m mark ! --mark 0x100 -j REJECT
+}
+kill_enabled() { [ "$(cat "$KILL_FLAG" 2>/dev/null)" = "1" ]; }
+vpn_wanted()   { [ "$(cat "$WANTED_FLAG" 2>/dev/null)" = "1" ]; }
+kill_enforce() {
+    if vpn_wanted && kill_enabled && ! ip route show table $TABLE 2>/dev/null | grep -q "^default dev $TUN"; then
+        kill_block_on
+    else
+        kill_block_off
+    fi
+}
+kill_on()  { echo 1 > "$KILL_FLAG"; kill_enforce; say "kill switch ON  (if the tunnel drops, the internet stops)"; }
+kill_off() { echo 0 > "$KILL_FLAG"; kill_block_off; say "kill switch OFF (if the tunnel drops, traffic goes direct)"; }
+kill_status() {
+    if kill_enabled; then say "kill     : on"; else say "kill     : off"; fi
+}
+
+usage() {
     say "usage: vpn sb on|off|restart|status|list|use <name>|test <name>|testall|remove <name>"
     exit 2
 }
@@ -474,6 +562,24 @@ case "$1" in
             use) use_conf "$3" ;;
             list) list_conf ;;
             *) usage ;;
+        esac
+        ;;
+    split)
+        case "$2" in
+            on) split_on ;;
+            off) split_off ;;
+            ensure) split_ensure ;;
+            status) split_status ;;
+            *) say "usage: vpn split on|off|status"; exit 2 ;;
+        esac
+        ;;
+    kill)
+        case "$2" in
+            on) kill_on ;;
+            off) kill_off ;;
+            enforce) kill_enforce ;;
+            status) kill_status ;;
+            *) say "usage: vpn kill on|off|status"; exit 2 ;;
         esac
         ;;
     sb)

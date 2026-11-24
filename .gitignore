@@ -17,3 +17,6 @@
 
 AndroidApp/.build/
 *.idsig
+
+# The 28 MB sing-box payload is fetched by fetch-payload.sh, never committed.
+build/sing-box.gz
