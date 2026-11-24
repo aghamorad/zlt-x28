@@ -6,16 +6,23 @@
 <title>ZLT X28 — VPN</title>
 <style>
   :root{
-    --bg:#0d0f14; --surface:#151922; --surface-hi:#1c212d; --border:rgba(255,255,255,.09);
-    --text:#f4f1ea; --muted:#9aa3b5; --green:#32b868; --red:#e84a27; --blue:#2f7cf6;
+    --bg:#171411; --surface:#1f1b17; --surface-hi:#27221d; --border:rgba(239,230,214,.13);
+    --text:#efe6d6; --muted:#a79a85; --green:#8fc3a4; --red:#e0836f; --amber:#e39a4b;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.45}
   main{max-width:620px;margin:0 auto;padding:22px 18px 60px}
-  h1{font-size:26px;margin:0 0 2px}
+  h1{font-size:26px;margin:0 0 2px;letter-spacing:-.4px;font-weight:600}
   .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px;margin-bottom:16px}
   .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .row>div{min-width:0;flex:1 1 auto}
+  .setting{display:grid;grid-template-columns:1fr auto;align-items:center}
+  .setting .btn{width:auto}
+  @media (max-width:520px){
+    .setting{grid-template-columns:1fr}
+    .setting .btn{width:100%}
+  }
   .hero{font-size:30px;font-weight:800;margin:0}
   .hero.on{color:var(--green)}
   .hero.off{color:var(--muted)}
@@ -23,8 +30,8 @@
   .btn{appearance:none;border:0;border-radius:14px;background:var(--surface-hi);color:var(--text);
        font-size:17px;font-weight:700;padding:16px 18px;min-height:56px;width:100%;cursor:pointer}
   .btn:active{transform:scale(.99)}
-  .btn.primary{background:var(--blue)}
-  .btn.green{background:var(--green);color:#08130c}
+  .btn.primary{background:var(--amber);color:#1b1409}
+  .btn.green{background:var(--green);color:#0e1a13}
   .btn.danger{background:transparent;border:1px solid rgba(232,74,39,.5);color:#ff8f74;
               width:auto;min-height:44px;padding:10px 14px;font-size:14px;font-weight:600}
   .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg);padding:6px;border-radius:14px;border:1px solid var(--border);margin-bottom:16px}
@@ -60,14 +67,14 @@
   </div>
 
   <div class="card">
-    <div class="row" style="margin-bottom:12px">
+    <div class="row setting" style="margin-bottom:12px">
       <div>
         <div class="name">Iranian sites go direct</div>
         <div class="ep">Skip the tunnel for Iran's networks — local sites stay fast.</div>
       </div>
       <button class="btn" style="width:auto;min-height:48px;padding:12px 18px" id="splitBtn" onclick="toggleSplit()">—</button>
     </div>
-    <div class="row">
+    <div class="row setting">
       <div>
         <div class="name">Kill switch</div>
         <div class="ep">If the tunnel drops, stop the internet instead of going direct.</div>
@@ -94,7 +101,7 @@
   </div>
 
   <div class="card">
-    <div class="row">
+    <div class="row setting">
       <div>
         <div class="name">Read it again</div>
         <div class="ep">The page refreshes by itself after every change.</div>

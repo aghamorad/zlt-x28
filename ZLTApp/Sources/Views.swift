@@ -81,11 +81,13 @@ struct RootView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
             }
+            .background(Theme.paper)
             .navigationSplitViewColumnWidth(min: 205, ideal: 220, max: 280)
         } detail: {
             page
                 .frame(minWidth: 600, minHeight: 480)
         }
+        .tint(Theme.amber)
         .toolbar {
             ToolbarItemGroup(placement: .automatic) {
                 if let busy = model.busy {
@@ -127,10 +129,14 @@ struct RootView: View {
                     .padding(.horizontal, 12)
                     .contentShape(Rectangle())
                     .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(selected ? Color.accentColor : Color.clear)
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(selected ? Theme.raised : Color.clear)
                     )
-                    .foregroundStyle(selected ? Color.white : Color.primary)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 5)
+                            .strokeBorder(selected ? Theme.hairline : Color.clear)
+                    )
+                    .foregroundStyle(selected ? Theme.amber : Theme.ink.opacity(0.82))
             }
             .buttonStyle(.plain)
         }
@@ -305,7 +311,7 @@ struct HomeView: View {
                             .frame(minWidth: 150, minHeight: 46)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(model.vpnOn ? .red : .green)
+                    .tint(model.vpnOn ? Theme.brick : Theme.amber)
                     .disabled(!model.provisioned || model.reach != .reachable
                               || model.busy != nil || model.setupRunning)
                     .help(model.provisioned ? "Turn the VPN on or off"
@@ -380,26 +386,39 @@ struct HomeView: View {
     }
 
     private var quickActionsRow: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 0) {
             quickButton(title: "Switch or Paste VPN", icon: "lock.shield") {
                 section = .vpn
             }
+            Rectangle().fill(Theme.hairline).frame(width: 1)
             quickButton(title: "Carrier & Speed", icon: "antenna.radiowaves.left.and.right") {
                 section = .carrier
             }
+            Rectangle().fill(Theme.hairline).frame(width: 1)
             quickButton(title: "Check Connection", icon: "stethoscope") {
                 section = .health
             }
         }
+        .frame(height: 52)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .strokeBorder(Theme.hairline))
     }
 
     private func quickButton(title: String, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Label(title, systemImage: icon)
-                .font(.system(size: 14, weight: .medium))
-                .frame(maxWidth: .infinity, minHeight: 46)
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.amber)
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+            }
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.plain)
     }
 
     private var setupBanner: some View {
@@ -2257,15 +2276,15 @@ struct PageScroll<Content: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
                 content
             }
-            .padding(.horizontal, 26)
+            .padding(.horizontal, 30)
             .padding(.top, 34)
-            .padding(.bottom, 24)
+            .padding(.bottom, 28)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(Theme.paper)
     }
 }
 
@@ -2274,13 +2293,18 @@ struct PageHeader: View {
     let subtitle: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.system(size: 25, weight: .semibold, design: .rounded))
-            Text(subtitle)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(Theme.title)
+                    .tracking(-0.4)
+                    .foregroundStyle(Theme.ink)
+                Text(subtitle)
+                    .font(Theme.body)
+                    .foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Rectangle().fill(Theme.hairline).frame(height: 1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -2295,10 +2319,10 @@ struct Card<Content: View>: View {
         content
             .padding(18)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor)))
-            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.07)))
+            .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Theme.panel))
+            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Theme.hairline))
     }
 }
 
@@ -2308,24 +2332,25 @@ struct InfoBox: View {
     var icon: String = "info.circle"
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-                .padding(.top, 2)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title).font(.callout.weight(.semibold))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.faint)
+                .padding(.top, 3)
+            VStack(alignment: .leading, spacing: 5) {
+                Text(title)
+                    .font(Theme.sectionTitle)
+                    .foregroundStyle(Theme.ink)
                 Text(text)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(Theme.body)
+                    .foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 0)
         }
-        .padding(14)
+        .padding(.vertical, 4)
+        .padding(.leading, 2)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .fill(Color.accentColor.opacity(0.07)))
     }
 }
 
@@ -2344,8 +2369,8 @@ struct ScopeNote: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 2)
             Text(text)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+                .font(Theme.caption)
+                .foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
@@ -2377,7 +2402,7 @@ struct InfoRow: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Text(label).foregroundStyle(.secondary)
+            Text(label).foregroundStyle(Theme.muted).font(Theme.body)
             Spacer(minLength: 12)
             Text(value)
                 .multilineTextAlignment(.trailing)
@@ -2402,12 +2427,12 @@ struct Chip: View {
     var color: Color = .secondary
 
     var body: some View {
-        Text(text)
-            .font(.system(size: 11, weight: .semibold))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .foregroundStyle(color)
-            .background(Capsule().fill(color.opacity(0.14)))
+        HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 6, height: 6)
+            Text(text)
+                .font(Theme.label)
+                .foregroundStyle(color)
+        }
     }
 }
 
@@ -2418,8 +2443,8 @@ struct SignalBars: View {
         HStack(alignment: .bottom, spacing: 3) {
             ForEach(1...5, id: \.self) { step in
                 RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                    .fill(step <= level ? Color.accentColor
-                                        : Color.secondary.opacity(0.25))
+                    .fill(step <= level ? Theme.green
+                                        : Theme.faint.opacity(0.45))
                     .frame(width: 5, height: CGFloat(5 + step * 3))
             }
         }
@@ -2434,7 +2459,7 @@ struct NoticeToast: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "info.circle.fill")
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Theme.amber)
             Text(text)
                 .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
@@ -2449,11 +2474,10 @@ struct NoticeToast: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(.regularMaterial,
-                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .strokeBorder(Color.primary.opacity(0.1)))
-        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(Theme.raised))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .strokeBorder(Theme.hairlineStrong))
     }
 }
 

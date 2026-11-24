@@ -76,6 +76,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate,
             NSEdgeInsets(top: 46, left: 0, bottom: 0, right: 0)
         window.minSize = NSSize(width: 900, height: 620)
         window.setFrameAutosaveName("ZLTX28MainWindow")
+        window.backgroundColor = NSColor(red: 0.090, green: 0.078, blue: 0.067, alpha: 1)
+        window.appearance = NSAppearance(named: .darkAqua)
         window.center()
         window.delegate = self
         window.isReleasedWhenClosed = false

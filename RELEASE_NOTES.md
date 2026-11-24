@@ -1,3 +1,19 @@
+## ZLT X28 1.5.0
+
+**A design pass, not a feature pass.** The app looked like the default AI dashboard: neutral near-black, a blue accent, every block a 14 px-rounded card with a soft border, coloured pills, a big title over tiny grey text. It worked, but it did not look like anything in particular.
+
+It now has one material and one signal, borrowed from the thing it actually is — a control sheet for a piece of equipment:
+
+- **Warm charcoal ground, cream ink**, flat panels with hairlines instead of shadows. Depth is a rule, not a glow.
+- **Amber is the only accent**: the live item in the sidebar, primary actions, the selected segment. Green is reserved for healthy, brick for destructive. No blue, no gradients, no glass.
+- **Numbers are tabular**: IPs, byte counts and timestamps sit in a fixed-width figure so they stop jittering as they update.
+- **Explanations are text, not boxes.** The tinted info cards inside panels are gone; they are now plain notes under a heading.
+- The three quick-action buttons became one command bar with hairline separators, instead of three identical cards.
+- The phone page got the same palette, a stacked layout on narrow screens (the toggles no longer squeeze their own labels), and full-size tap targets.
+- The Android helper page lost `user-scalable=no` and its 100vh, so pinch-zoom works and the URL bar cannot clip it.
+
+`PRODUCT.md` and `DESIGN.md` now record the direction, palette, type scale, geometry and the rules this app refuses, so the next change has something to be consistent with. The anti-slop scanner reports **0 bans, 0 warnings** on the tree.
+
 ## ZLT X28 1.4.1
 
 **Renaming, done properly.** The rename dialog is now a real sheet that opens with the current name already in it and selected, so you can just type over it — every time, not only the first time. It validates as you go (letters, digits, `-` and `_`), refuses a name that is already taken, and closes on Return. Right-click any config for **Rename…** and **Delete** as well, the way a Mac list should behave.
