@@ -177,7 +177,7 @@ struct RootView: View {
                     .font(.caption2)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(Theme.amber)
             .help("Opens GitHub in your browser")
         case .failed(let message):
             Text(message)
@@ -319,7 +319,7 @@ struct HomeView: View {
                 }
             }
 
-            Divider()
+            Rectangle().fill(Theme.hairline).frame(height: 1)
 
             HStack(spacing: 26) {
                 miniStat(label: "Router",
@@ -333,11 +333,11 @@ struct HomeView: View {
                          ok: model.lastRefresh != nil)
             }
         }
-        .padding(22)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .strokeBorder(Color.primary.opacity(0.07)))
+        .padding(20)
+        .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+            .strokeBorder(Theme.hairline))
     }
 
     private func heroText() -> (title: String, detail: String) {
@@ -560,8 +560,10 @@ struct VPNView: View {
                     Spacer()
                 }
                 .padding(14)
-                .background(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.accentColor.opacity(0.14)))
+                .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(Theme.amber.opacity(0.12)))
+                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(Theme.amber.opacity(0.45)))
             }
 
             switch model.engine {
@@ -912,43 +914,52 @@ struct VPNView: View {
         let active = entry.name == model.currentConfig
         let picked = selection.contains(entry.name)
         return HStack(spacing: 12) {
-            Image(systemName: active ? "largecircle.fill.circle" : "circle")
-                .foregroundStyle(active ? Color.accentColor : Color.secondary)
+            Circle()
+                .fill(active ? Theme.green : Theme.faint.opacity(0.45))
+                .frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 2) {
-                Text(entry.name).font(.body.weight(.medium))
+                HStack(spacing: 8) {
+                    Text(entry.name)
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                    if active {
+                        Text("Active")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.green)
+                    }
+                }
                 Text(entry.endpoint.isEmpty ? "No server address in this file"
                                             : entry.endpoint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 11.5).monospacedDigit())
+                    .foregroundStyle(Theme.muted)
                     .lineLimit(1)
             }
             Spacer()
-            if active { Chip(text: "In use", color: .green) }
-            Button("Use") {
+            Button(active ? "In use" : "Use") {
                 Task { await model.useConfig(entry.name) }
             }
+            .buttonStyle(.bordered)
             .disabled(active || model.busy != nil)
-            Button {
+            Button("Rename") {
                 renaming = entry
-            } label: {
-                Image(systemName: "pencil")
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.bordered)
             .help("Rename this config")
             .disabled(model.busy != nil)
             Button {
                 pendingRemoval = entry
             } label: {
                 Image(systemName: "trash")
+                    .foregroundStyle(Theme.muted)
             }
             .buttonStyle(.borderless)
             .help("Delete this config from the router")
             .disabled(model.busy != nil)
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 8)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .fill(picked ? Color.accentColor.opacity(0.14) : Color.clear))
+        .padding(.vertical, 8)
+        .padding(.horizontal, 10)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(picked ? Theme.amber.opacity(0.14) : Color.clear))
         .contentShape(Rectangle())
         .onTapGesture { selectConfig(entry.name) }
         .contextMenu {
@@ -1323,21 +1334,25 @@ struct SetupView: View {
     private var alreadyCard: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 20))
-                .foregroundStyle(.green)
+                .font(.system(size: 18))
+                .foregroundStyle(Theme.green)
             VStack(alignment: .leading, spacing: 4) {
-                Text("This router is already set up").font(.headline)
+                Text("This router is already set up")
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
                 Text("The VPN engine is installed and starts after a power cut. "
                     + "You can run the steps below again at any time — they replace "
                     + "the engine cleanly.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.muted)
             }
             Spacer()
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(Color.green.opacity(0.08)))
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .strokeBorder(Theme.hairline))
     }
 
     @ViewBuilder private var logView: some View {
@@ -1509,7 +1524,7 @@ struct CarrierView: View {
                     .foregroundStyle(.secondary)
             }
             ProgressView(value: sample.result.mbps, total: best)
-                .tint(sample.label.contains("VPN") ? Color.accentColor : Color.green)
+                .tint(sample.label.contains("VPN") ? Theme.amber : Theme.green)
         }
     }
 
@@ -2591,17 +2606,17 @@ struct StepCard<Content: View>: View {
             HStack(alignment: .top, spacing: 14) {
                 ZStack {
                     Circle()
-                        .fill(done ? Color.green.opacity(0.18)
-                                   : Color.secondary.opacity(0.12))
-                        .frame(width: 30, height: 30)
+                        .fill(done ? Theme.green.opacity(0.16)
+                                   : Theme.raised)
+                        .frame(width: 28, height: 28)
                     if done {
                         Image(systemName: "checkmark")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.green)
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Theme.green)
                     } else {
                         Text("\(number)")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(.secondary)
+                            .font(.system(size: 12, weight: .bold).monospacedDigit())
+                            .foregroundStyle(Theme.muted)
                     }
                 }
 

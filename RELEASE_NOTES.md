@@ -1,3 +1,13 @@
+## ZLT X28 1.6.0
+
+**The Mac app and browser page now work the exact same way — and both can rename configs.**
+
+- **Zero-setup HTTP mode on any new Mac:** when a new computer hasn't paired an SSH key yet (or the admin password was changed), the Mac app now talks directly to the router's own `/cgi-bin/zlt` HTTP API — the exact same API the browser page uses. VPN status, On/Off, switching configs, renaming, deleting, split tunnelling, kill switch, and Links all work immediately with zero setup. SSH pairing still runs quietly in the background when the default password works (for uploading new `.conf` files and radio band scanning).
+- **Rename everywhere (web + Mac):** added `awg_rename` to `zlt.cgi` and a smooth in-page **Rename** modal in `zlt.html` (prefilled, auto-selected, live validation, no browser `prompt()`/`confirm()`). In the Mac app, the tiny pencil icon is now a clear labeled **Rename** button. The Mac app automatically updates the router's `/tzwww/zlt.html` and `/tzwww/cgi-bin/zlt` on its next SSH refresh.
+- **Cohesive UI overhaul (web + Mac):**
+  - Rebuilt the router web page with a compact header refresh button (removed the extra bottom card), real animated pill toggle switches for Iranian bypass and Kill switch, consistent radii and hairlines, warm-palette toast, and smooth in-page modals.
+  - Removed the leftover grey macOS system `controlBackgroundColor` hero card, system-blue `Color.accentColor` highlights, and tinted boxes from `Views.swift` so every surface shares the warm charcoal + cream + amber palette.
+
 ## ZLT X28 1.5.1
 
 **New Macs connect straight to an already-set-up router.** Previously, installing the app on a second or new computer while connected to an already-configured X28 showed **Not set up yet** and asked to run full setup — even when the browser page (`http://192.168.70.1/zlt.html`) worked — because each Mac generates its own SSH key and the new Mac's key was not yet in the router's `authorized_keys`.

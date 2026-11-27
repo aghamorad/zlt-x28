@@ -418,6 +418,10 @@ final class AppModel: ObservableObject {
 
     @Published var reach: Reach = .checking
     @Published var provisioned = false
+    /// True when this Mac has working SSH access to the router (needed only for
+    /// uploading new .conf files, radio band scanning, and engine installs).
+    /// Basic VPN control works immediately over HTTP even when sshPaired is false.
+    @Published var sshPaired = false
     /// True when the router's own web API (/cgi-bin/zlt) answers, proving the
     /// VPN engine is already installed even if this Mac has no SSH key on the
     /// router yet (e.g. first launch on a new computer).
@@ -618,6 +622,7 @@ final class AppModel: ObservableObject {
         guard await Self.routerAnswers() else {
             reach = .unreachable
             provisioned = false
+            sshPaired = false
             routerAlreadySetUp = false
             panelAuthFailed = false
             lastRefresh = Date()
@@ -661,47 +666,58 @@ final class AppModel: ObservableObject {
 
         carrier = info
         panelAuthFailed = authRejected
-        reach = (panelOK || authRejected) ? .reachable : .unreachable
-
-        guard panelOK else {
-            provisioned = false
-            routerAlreadySetUp = authRejected ? await Self.webAppAnswers() : false
-            lastRefresh = Date()
-            return
-        }
 
         var probe = await Self.probeRouterOverSSH()
-        var sshProvisioned = probe.ok && probe.output.contains("daemon")
+        var sshOK = probe.ok && probe.output.contains("daemon")
 
-        if !sshProvisioned {
-            // SSH failed — either the router has never been set up, or this is a
-            // new Mac whose SSH key is not on the router yet. Ask the router's
-            // own HTTP status endpoint (the same one the browser page uses).
-            let webLive = await Self.webAppAnswers()
-            routerAlreadySetUp = webLive
-            if webLive, !attemptedAutoPair, !setupRunning {
-                attemptedAutoPair = true
-                busy = "Connecting this Mac to the router…"
-                let provisioner = Provisioner(
-                    password: password,
-                    server: server,
-                    publish: { _ in })
-                let paired = (try? await provisioner.pairKeyOnly()) ?? false
-                busy = nil
-                if paired {
-                    probe = await Self.probeRouterOverSSH()
-                    sshProvisioned = probe.ok && probe.output.contains("daemon")
-                    if sshProvisioned {
-                        notice = "Connected this Mac to the router."
+        if !sshOK {
+            // SSH failed — either this is a new Mac whose key isn't on the router
+            // yet, or the router has never been set up. Talk to the router's own
+            // HTTP API (/cgi-bin/zlt) — the exact same API the browser page uses.
+            if let httpStatus = await RouterHTTP.fetchStatus() {
+                reach = .reachable
+                routerAlreadySetUp = true
+                webAppReady = true
+                applyHTTPStatus(httpStatus)
+                provisioned = true
+                sshPaired = false
+
+                // If the default/saved admin password already worked, quietly pair
+                // this Mac's SSH key once in the background so advanced features
+                // (uploading .conf files, radio band scanning) work too.
+                if panelOK, !attemptedAutoPair, !setupRunning {
+                    attemptedAutoPair = true
+                    let provisioner = Provisioner(
+                        password: password,
+                        server: server,
+                        publish: { _ in })
+                    if (try? await provisioner.pairKeyOnly()) == true {
+                        let secondProbe = await Self.probeRouterOverSSH()
+                        if secondProbe.ok && secondProbe.output.contains("daemon") {
+                            probe = secondProbe
+                            sshOK = true
+                        }
                     }
                 }
+
+                if !sshOK {
+                    lastRefresh = Date()
+                    return
+                }
+            } else {
+                reach = (panelOK || authRejected) ? .reachable : .unreachable
+                provisioned = false
+                sshPaired = false
+                routerAlreadySetUp = false
+                lastRefresh = Date()
+                return
             }
-        } else {
-            routerAlreadySetUp = true
         }
 
-        provisioned = sshProvisioned
-        guard provisioned else { lastRefresh = Date(); return }
+        reach = .reachable
+        sshPaired = true
+        routerAlreadySetUp = true
+        provisioned = true
 
         let sections = probe.output.components(separatedBy: "@@")
         let listing = sections.count > 1 ? sections[0] : ""
@@ -721,9 +737,33 @@ final class AppModel: ObservableObject {
         mergeLinks(Self.parseLinks(linkText), installed: sb.installed)
         webAppReady = webText.contains("WEB_OK")
         lastRefresh = Date()
-        // A firmware update wipes the router's web folder. Put the page back unprompted.
+        // Keep the router's web page up to date (and restore it after firmware wipes).
         if webAppReady == false, !repairingWebApp {
             Task { await self.repairWebApp() }
+        }
+    }
+
+    private func applyHTTPStatus(_ payload: RouterHTTP.StatusPayload) {
+        var nextStatus = status
+        let isOn = payload.awg.on == 1
+        nextStatus.daemonRunning = isOn
+        nextStatus.routeThroughTunnel = isOn
+        nextStatus.config = payload.awg.config.isEmpty ? "—" : payload.awg.config
+        nextStatus.exitIP = payload.awg.exit.isEmpty ? "—" : payload.awg.exit
+        nextStatus.splitOn = (payload.split ?? 0) == 1
+        nextStatus.killOn = (payload.kill ?? 0) == 1
+        status = nextStatus
+        currentConfig = nextStatus.config
+        configs = payload.configs.map { ConfigEntry(name: $0.name, endpoint: $0.endpoint) }
+
+        var nextSB = sb
+        nextSB.installed = true
+        nextSB.running = payload.sb.on == 1
+        nextSB.routed = payload.sb.on == 1
+        nextSB.active = payload.sb.link.isEmpty ? "-" : payload.sb.link
+        sb = nextSB
+        links = payload.links.map {
+            LinkEntry(name: $0.name, kind: "link", server: $0.name, title: $0.name, raw: "")
         }
     }
 
@@ -741,6 +781,7 @@ final class AppModel: ObservableObject {
             + "for f in /data/zltx28/singbox/links/*.link; do [ -f \"$f\" ] || continue; "
             + "n=${f##*/}; n=${n%.link}; echo \"LINK:$n\"; cat \"$f\"; echo; done; "
             + "echo '@@'; [ -x /tzwww/cgi-bin/zlt ] && [ -f /tzwww/zlt.html ] "
+            + "&& grep -q 'awg_rename' /tzwww/cgi-bin/zlt 2>/dev/null "
             + "&& echo WEB_OK || echo WEB_MISSING",
             timeout: 45)
     }
@@ -986,6 +1027,16 @@ final class AppModel: ObservableObject {
         if routerMissing() { return }
         busy = on ? "Turning split tunnelling on…" : "Turning split tunnelling off…"
         notice = nil
+        if !sshPaired {
+            let reply = await RouterHTTP.action(on ? "split_on" : "split_off", timeout: 90)
+            busy = nil
+            notice = reply.ok
+                ? (on ? "Split tunnelling is on: Iranian sites go direct."
+                      : "Split tunnelling is off: everything goes through the tunnel.")
+                : reply.say
+            await refresh()
+            return
+        }
         let result = await RouterSSH.run("/usr/bin/vpn split \(on ? "on" : "off")",
                                          timeout: 90)
         busy = nil
@@ -1006,6 +1057,16 @@ final class AppModel: ObservableObject {
         if routerMissing() { return }
         busy = on ? "Turning the kill switch on…" : "Turning the kill switch off…"
         notice = nil
+        if !sshPaired {
+            let reply = await RouterHTTP.action(on ? "kill_on" : "kill_off", timeout: 45)
+            busy = nil
+            notice = reply.ok
+                ? (on ? "Kill switch on: if the tunnel drops, internet stops until it is back."
+                      : "Kill switch off: if the tunnel drops, traffic goes direct.")
+                : reply.say
+            await refresh()
+            return
+        }
         let result = await RouterSSH.run("/usr/bin/vpn kill \(on ? "on" : "off")",
                                          timeout: 45)
         busy = nil
@@ -1056,6 +1117,20 @@ final class AppModel: ObservableObject {
         }
         busy = label
         notice = nil
+        if !sshPaired {
+            if verb == "restart" {
+                _ = await RouterHTTP.action("awg_off", timeout: 45)
+                let reply = await RouterHTTP.action("awg_on", timeout: 60)
+                busy = nil
+                if !reply.ok { notice = reply.say }
+            } else {
+                let reply = await RouterHTTP.action(verb == "on" ? "awg_on" : "awg_off", timeout: 60)
+                busy = nil
+                if !reply.ok { notice = reply.say }
+            }
+            await refresh()
+            return
+        }
         // 60 seconds is already generous: a working start finishes in about 20.
         // If the router stops answering, the user gets an answer instead of a spinner.
         let result = await RouterSSH.run("/usr/bin/vpn awg \(verb)", timeout: 60)
@@ -1076,6 +1151,13 @@ final class AppModel: ObservableObject {
         if routerMissing() { return }
         busy = "Switching to \(name)…"
         notice = nil
+        if !sshPaired {
+            let reply = await RouterHTTP.action("awg_use", params: [("name", name)], timeout: 90)
+            busy = nil
+            if !reply.ok { notice = reply.say }
+            await refresh()
+            return
+        }
         let wasOn = vpnOn
         let suffix = wasOn ? " && /usr/bin/vpn awg restart" : ""
         let result = await RouterSSH.run(
@@ -1107,6 +1189,14 @@ final class AppModel: ObservableObject {
         }
         busy = "Renaming \(name)…"
         notice = nil
+        if !sshPaired {
+            let reply = await RouterHTTP.action(
+                "awg_rename", params: [("old", name), ("new", cleaned)], timeout: 30)
+            busy = nil
+            notice = reply.say
+            await refresh()
+            return
+        }
         let result = await RouterSSH.run(
             "mv '/etc/amneziawg/awg0.conf.\(name)' '/etc/amneziawg/awg0.conf.\(cleaned)' "
             + "&& echo RENAMED", timeout: 30)
@@ -1132,6 +1222,13 @@ final class AppModel: ObservableObject {
         if routerMissing() { return }
         busy = "Deleting \(name)…"
         notice = nil
+        if !sshPaired {
+            let reply = await RouterHTTP.action("awg_delete", params: [("name", name)], timeout: 30)
+            busy = nil
+            notice = reply.say
+            await refresh()
+            return
+        }
         let wasActive = (name == currentConfig)
         // The name is limited to letters, digits, - and _ when it is created,
         // so it cannot break out of the quotes.
@@ -1165,6 +1262,20 @@ final class AppModel: ObservableObject {
         if routerMissing() { return }
         busy = label
         notice = nil
+        if !sshPaired {
+            if verb == "restart" {
+                _ = await RouterHTTP.action("sb_off", timeout: 45)
+                let reply = await RouterHTTP.action("sb_on", timeout: 90)
+                busy = nil
+                if !reply.ok { notice = reply.say }
+            } else {
+                let reply = await RouterHTTP.action(verb == "on" ? "sb_on" : "sb_off", timeout: 90)
+                busy = nil
+                if !reply.ok { notice = reply.say }
+            }
+            await refresh()
+            return
+        }
         // sing-box legitimately takes longer than the AmneziaWG engine to settle.
         let result = await RouterSSH.run("/usr/bin/vpn sb \(verb)", timeout: 90)
         busy = nil
@@ -1365,6 +1476,13 @@ final class AppModel: ObservableObject {
         if routerMissing() { return }
         busy = "Switching to \(name)…"
         notice = nil
+        if !sshPaired {
+            let reply = await RouterHTTP.action("sb_use", params: [("name", name)], timeout: 120)
+            busy = nil
+            if !reply.ok { notice = reply.say }
+            await refresh()
+            return
+        }
         let wasOn = sb.isOn
         let suffix = wasOn ? " && /usr/bin/vpn sb restart" : ""
         let result = await RouterSSH.run("/usr/bin/vpn sb use '\(name)'\(suffix)",
@@ -1382,6 +1500,14 @@ final class AppModel: ObservableObject {
         if routerMissing() { return }
         busy = "Deleting \(name)…"
         notice = nil
+        if !sshPaired {
+            let reply = await RouterHTTP.action("sb_delete", params: [("name", name)], timeout: 45)
+            busy = nil
+            if reply.ok { Self.forget(name) }
+            notice = reply.say
+            await refresh()
+            return
+        }
         let wasActive = (name == sb.active)
         var script = ""
         if wasActive {

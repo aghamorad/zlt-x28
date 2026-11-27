@@ -126,6 +126,20 @@ case "$ACT" in
         if [ "$was_on" = 1 ]; then out="$out; $(/usr/bin/vpn awg restart 2>&1 | tail -n 1)"; fi
         reply true "$(printf '%s' "$out" | tail -n 2)"
         ;;
+    awg_rename)
+        old=$(urldecode "$(param old)")
+        new=$(urldecode "$(param new)")
+        valid_name "$old" || { fail "The current config name is not valid."; exit 0; }
+        valid_name "$new" || { fail "Use letters, digits, - or _ only."; exit 0; }
+        [ -f "/etc/amneziawg/awg0.conf.$old" ] || { fail "No config named $old."; exit 0; }
+        [ "$old" = "$new" ] && { reply true "$old kept its name."; exit 0; }
+        [ ! -e "/etc/amneziawg/awg0.conf.$new" ] || { fail "There is already a config named $new."; exit 0; }
+        if mv "/etc/amneziawg/awg0.conf.$old" "/etc/amneziawg/awg0.conf.$new" 2>/dev/null; then
+            reply true "$old is now called $new."
+        else
+            fail "Could not rename $old."
+        fi
+        ;;
     awg_delete)
         name=$(urldecode "$(param name)")
         valid_name "$name" || { fail "That config name is not valid."; exit 0; }

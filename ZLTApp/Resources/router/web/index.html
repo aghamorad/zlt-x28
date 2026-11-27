@@ -3,194 +3,679 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>ZLT X28 — VPN</title>
+<title>ZLT X28</title>
 <style>
-  :root{
-    --bg:#171411; --surface:#1f1b17; --surface-hi:#27221d; --border:rgba(239,230,214,.13);
-    --text:#efe6d6; --muted:#a79a85; --green:#8fc3a4; --red:#e0836f; --amber:#e39a4b;
+  :root {
+    --bg: #141210;
+    --surface: #1c1916;
+    --elevated: #25211d;
+    --elevated-hover: #2d2823;
+    --hairline: rgba(242, 234, 224, 0.10);
+    --hairline-strong: rgba(242, 234, 224, 0.18);
+    --ink: #f2eae0;
+    --muted: #9e9384;
+    --faint: #6c6358;
+    --amber: #e09644;
+    --amber-ink: #1a130a;
+    --green: #6ec492;
+    --red: #e06c5a;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.45}
-  main{max-width:620px;margin:0 auto;padding:22px 18px 60px}
-  h1{font-size:26px;margin:0 0 2px;letter-spacing:-.4px;font-weight:600}
-  .sub{color:var(--muted);font-size:14px;margin:0 0 22px}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:18px;margin-bottom:16px}
-  .row{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .row>div{min-width:0;flex:1 1 auto}
-  .setting{display:grid;grid-template-columns:1fr auto;align-items:center}
-  .setting .btn{width:auto}
-  @media (max-width:520px){
-    .setting{grid-template-columns:1fr}
-    .setting .btn{width:100%}
+  *, *::before, *::after { box-sizing: border-box; }
+  html {
+    -webkit-tap-highlight-color: transparent;
+    background: var(--bg);
+    color: var(--ink);
   }
-  .hero{font-size:30px;font-weight:800;margin:0}
-  .hero.on{color:var(--green)}
-  .hero.off{color:var(--muted)}
-  .note{color:var(--muted);font-size:15px;margin:8px 0 0}
-  .btn{appearance:none;border:0;border-radius:14px;background:var(--surface-hi);color:var(--text);
-       font-size:17px;font-weight:700;padding:16px 18px;min-height:56px;width:100%;cursor:pointer}
-  .btn:active{transform:scale(.99)}
-  .btn.primary{background:var(--amber);color:#1b1409}
-  .btn.green{background:var(--green);color:#0e1a13}
-  .btn.danger{background:transparent;border:1px solid rgba(232,74,39,.5);color:#ff8f74;
-              width:auto;min-height:44px;padding:10px 14px;font-size:14px;font-weight:600}
-  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--bg);padding:6px;border-radius:14px;border:1px solid var(--border);margin-bottom:16px}
-  .seg button{border:0;background:transparent;color:var(--muted);font-size:16px;font-weight:700;padding:14px 8px;border-radius:10px;min-height:52px}
-  .seg button.active{background:var(--surface-hi);color:var(--text);border:1px solid var(--border)}
-  .item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;border-top:1px solid var(--border)}
-  .item:first-of-type{border-top:0}
-  .name{font-size:17px;font-weight:700}
-  .ep{color:var(--muted);font-size:13px;word-break:break-all}
-  .inuse{color:var(--green);font-size:13px;font-weight:700}
-  .actions{display:flex;gap:8px;align-items:center;flex-shrink:0}
-  .small{color:var(--muted);font-size:13px}
-  .hidden{display:none}
-  #toast{position:fixed;left:12px;right:12px;bottom:16px;background:#222835;border:1px solid var(--border);
-         border-radius:14px;padding:14px 16px;font-size:15px;opacity:0;transition:opacity .2s;pointer-events:none}
-  #toast.show{opacity:1}
-  .spin{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);
-        border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite;vertical-align:-3px;margin-right:8px}
-  @keyframes s{to{transform:rotate(360deg)}}
-  footer{color:var(--muted);font-size:13px;text-align:center;margin-top:26px;line-height:1.7}
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgba(224, 150, 68, 0.28); color: var(--ink); }
+  :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  main {
+    max-width: 540px;
+    margin: 0 auto;
+    padding: 20px 18px calc(52px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .brand h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    margin: 0;
+  }
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--faint);
+    flex-shrink: 0;
+    transition: background 220ms var(--ease);
+  }
+  .dot.on { background: var(--green); }
+  .dot.off { background: var(--faint); }
+  .dot.err { background: var(--red); }
+
+  .icon-btn {
+    appearance: none;
+    border: 1px solid var(--hairline);
+    background: var(--surface);
+    color: var(--muted);
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background 160ms var(--ease), color 160ms var(--ease), transform 120ms var(--ease);
+  }
+  .icon-btn:active { transform: scale(0.95); }
+  @media (hover: hover) and (pointer: fine) {
+    .icon-btn:hover { background: var(--elevated); color: var(--ink); }
+  }
+  .icon-btn svg { width: 17px; height: 17px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-btn.spinning svg { animation: spin 0.7s linear infinite; }
+
+  /* Panels */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+
+  /* Hero power section */
+  .hero-wrap {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .hero-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .hero-title {
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    margin: 0;
+    line-height: 1.15;
+  }
+  .hero-title.on { color: var(--ink); }
+  .hero-title.off { color: var(--muted); }
+  .hero-sub {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 6px 0 0;
+  }
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--hairline);
+    font-variant-numeric: tabular-nums;
+  }
+  .meta-item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .meta-k { font-size: 11.5px; color: var(--faint); }
+  .meta-v { font-size: 13.5px; font-weight: 500; color: var(--ink); }
+
+  /* Primary power button */
+  .power-btn {
+    appearance: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    min-height: 48px;
+    padding: 0 18px;
+    width: 100%;
+    cursor: pointer;
+    touch-action: manipulation;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 180ms var(--ease), border-color 180ms var(--ease), transform 120ms var(--ease), opacity 160ms var(--ease);
+  }
+  .power-btn.turn-on {
+    background: var(--amber);
+    color: var(--amber-ink);
+  }
+  .power-btn.turn-off {
+    background: var(--elevated);
+    border-color: var(--hairline-strong);
+    color: var(--ink);
+  }
+  .power-btn:active:not(:disabled) { transform: scale(0.985); }
+  .power-btn:disabled { opacity: 0.55; cursor: default; }
+  @media (hover: hover) and (pointer: fine) {
+    .power-btn.turn-on:hover:not(:disabled) { filter: brightness(1.06); }
+    .power-btn.turn-off:hover:not(:disabled) { background: var(--elevated-hover); }
+  }
+
+  /* Settings rows with real tactile switches */
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 15px 18px;
+    border-top: 1px solid var(--hairline);
+  }
+  .setting-row:first-child { border-top: 0; }
+  .setting-copy { min-width: 0; flex: 1 1 auto; }
+  .setting-title { display: block; font-size: 14.5px; font-weight: 500; color: var(--ink); }
+  .setting-desc { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  .switch {
+    position: relative;
+    width: 48px;
+    height: 28px;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+  }
+  .slider {
+    position: absolute;
+    inset: 0;
+    background: var(--elevated);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 999px;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background 200ms var(--ease), border-color 200ms var(--ease);
+  }
+  .slider::before {
+    content: "";
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    left: 2px;
+    top: 2px;
+    background: var(--ink);
+    border-radius: 999px;
+    transition: transform 200ms var(--ease), background 200ms var(--ease);
+  }
+  .switch input:checked + .slider {
+    background: var(--amber);
+    border-color: var(--amber);
+  }
+  .switch input:checked + .slider::before {
+    transform: translateX(20px);
+    background: #faf6f0;
+  }
+  .switch input:disabled + .slider { opacity: 0.45; cursor: default; }
+  .switch input:focus-visible + .slider { outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  /* Segmented control */
+  .panel-head {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    background: var(--bg);
+    padding: 4px;
+    border-radius: 8px;
+    border: 1px solid var(--hairline);
+  }
+  .seg button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13.5px;
+    font-weight: 600;
+    min-height: 36px;
+    border-radius: 6px;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background 180ms var(--ease), color 180ms var(--ease);
+  }
+  .seg button.active {
+    background: var(--elevated);
+    color: var(--ink);
+  }
+
+  /* Config / link rows */
+  .list-empty {
+    padding: 24px 18px;
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 18px;
+    border-top: 1px solid var(--hairline);
+  }
+  .item:first-child { border-top: 0; }
+  .item-info { min-width: 0; flex: 1 1 auto; }
+  .item-head { display: flex; align-items: center; gap: 8px; }
+  .item-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .inuse-tag {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--green);
+    flex-shrink: 0;
+  }
+  .item-ep {
+    color: var(--muted);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .chip-btn {
+    appearance: none;
+    border: 1px solid var(--hairline-strong);
+    background: var(--elevated);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    min-height: 36px;
+    padding: 0 12px;
+    border-radius: 7px;
+    cursor: pointer;
+    touch-action: manipulation;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 150ms var(--ease), border-color 150ms var(--ease), color 150ms var(--ease), transform 110ms var(--ease);
+  }
+  .chip-btn:active:not(:disabled) { transform: scale(0.96); }
+  .chip-btn:disabled { opacity: 0.4; cursor: default; }
+  .chip-btn.ghost {
+    background: transparent;
+    border-color: var(--hairline);
+    color: var(--muted);
+  }
+  .chip-btn.danger-ghost {
+    background: transparent;
+    border-color: var(--hairline);
+    color: var(--muted);
+    padding: 0 10px;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .chip-btn:hover:not(:disabled) { background: var(--elevated-hover); color: var(--ink); }
+    .chip-btn.danger-ghost:hover:not(:disabled) {
+      border-color: rgba(224, 108, 90, 0.45);
+      color: var(--red);
+      background: rgba(224, 108, 90, 0.08);
+    }
+  }
+  .chip-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+
+  @media (max-width: 480px) {
+    .item { flex-direction: column; align-items: stretch; gap: 10px; }
+    .actions { justify-content: flex-end; }
+    .chip-btn { min-height: 40px; }
+  }
+
+  .hidden { display: none !important; }
+
+  /* Modal dialog (replaces ugly browser prompt/confirm) */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 9, 8, 0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms var(--ease);
+  }
+  .modal-backdrop.open { opacity: 1; pointer-events: auto; }
+  .modal {
+    width: 100%;
+    max-width: 380px;
+    background: var(--surface);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 10px;
+    padding: 20px;
+    transform: translateY(8px) scale(0.98);
+    transition: transform 200ms var(--ease);
+  }
+  .modal-backdrop.open .modal { transform: translateY(0) scale(1); }
+  .modal h2 { font-size: 17px; font-weight: 600; margin: 0 0 6px; letter-spacing: -0.015em; }
+  .modal p { font-size: 13.5px; color: var(--muted); margin: 0 0 14px; }
+  .modal input[type="text"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 8px;
+    color: var(--ink);
+    font-size: 16px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    caret-color: var(--amber);
+  }
+  .modal input[type="text"]:focus { outline: 2px solid var(--amber); outline-offset: 0; border-color: var(--amber); }
+  .modal-err { color: var(--red); font-size: 12.5px; min-height: 18px; margin-bottom: 12px; }
+  .modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  .modal-btn {
+    appearance: none;
+    border: 1px solid var(--hairline-strong);
+    background: var(--elevated);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    min-height: 40px;
+    padding: 0 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .modal-btn.primary { background: var(--amber); border-color: var(--amber); color: var(--amber-ink); }
+  .modal-btn.danger { background: var(--red); border-color: var(--red); color: #190c0a; }
+  .modal-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    transform: translate(-50%, 10px);
+    max-width: calc(100vw - 32px);
+    background: var(--elevated);
+    color: var(--ink);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 8px;
+    padding: 11px 16px;
+    font-size: 13.5px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 50;
+    transition: opacity 180ms var(--ease), transform 180ms var(--ease);
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .spin {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  footer {
+    color: var(--faint);
+    font-size: 12.5px;
+    text-align: center;
+    margin-top: 24px;
+    line-height: 1.65;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
 </style>
 </head>
 <body>
 <main>
-  <h1>ZLT X28</h1>
-  <p class="sub">The VPN for every device on this Wi-Fi.</p>
-
-  <div class="card">
-    <p class="hero off" id="hero">Reading the router…</p>
-    <p class="note" id="heroNote">One moment.</p>
-    <div style="height:14px"></div>
-    <button class="btn primary" id="switchBtn" onclick="flip()">Turn the VPN on</button>
-  </div>
-
-  <div class="card">
-    <div class="row setting" style="margin-bottom:12px">
-      <div>
-        <div class="name">Iranian sites go direct</div>
-        <div class="ep">Skip the tunnel for Iran's networks — local sites stay fast.</div>
-      </div>
-      <button class="btn" style="width:auto;min-height:48px;padding:12px 18px" id="splitBtn" onclick="toggleSplit()">—</button>
+  <header>
+    <div class="brand">
+      <span class="dot" id="statusDot"></span>
+      <h1>ZLT X28</h1>
     </div>
-    <div class="row setting">
-      <div>
-        <div class="name">Kill switch</div>
-        <div class="ep">If the tunnel drops, stop the internet instead of going direct.</div>
-      </div>
-      <button class="btn" style="width:auto;min-height:48px;padding:12px 18px" id="killBtn" onclick="toggleKill()">—</button>
-    </div>
-  </div>
+    <button class="icon-btn" id="refreshBtn" onclick="load(true)" aria-label="Refresh status" title="Refresh">
+      <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>
+    </button>
+  </header>
 
-  <div class="card">
-    <div class="seg">
-      <button id="tabConfigs" class="active" onclick="setTab('configs')">Configs</button>
-      <button id="tabLinks" onclick="setTab('links')">Links</button>
+  <section class="panel">
+    <div class="hero-wrap">
+      <div class="hero-top">
+        <div>
+          <p class="hero-title off" id="hero">Checking router…</p>
+          <p class="hero-sub" id="heroNote">Connecting to 192.168.70.1</p>
+        </div>
+      </div>
+
+      <div class="meta-strip hidden" id="metaStrip">
+        <div class="meta-item">
+          <span class="meta-k">Config</span>
+          <span class="meta-v" id="metaConfig">—</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-k">Exit IP</span>
+          <span class="meta-v" id="metaExit">—</span>
+        </div>
+      </div>
+
+      <button class="power-btn turn-on" id="switchBtn" onclick="flip()">Turn VPN On</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <label class="setting-row">
+      <span class="setting-copy">
+        <span class="setting-title">Iranian sites direct</span>
+        <span class="setting-desc">Bypass the tunnel for Iranian networks so local sites stay fast.</span>
+      </span>
+      <span class="switch">
+        <input type="checkbox" role="switch" id="splitToggle" onchange="toggleSplit()">
+        <span class="slider"></span>
+      </span>
+    </label>
+    <label class="setting-row">
+      <span class="setting-copy">
+        <span class="setting-title">Kill switch</span>
+        <span class="setting-desc">Pause traffic instead of leaking direct if the tunnel drops.</span>
+      </span>
+      <span class="switch">
+        <input type="checkbox" role="switch" id="killToggle" onchange="toggleKill()">
+        <span class="slider"></span>
+      </span>
+    </label>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head">
+      <div class="seg" role="tablist">
+        <button id="tabConfigs" class="active" role="tab" onclick="setTab('configs')">Configs</button>
+        <button id="tabLinks" role="tab" onclick="setTab('links')">Links</button>
+      </div>
     </div>
 
     <div id="configs">
-      <p class="small" id="configsEmpty">No configs on the router yet.</p>
+      <p class="list-empty" id="configsEmpty">No configs on the router yet.</p>
       <div id="configList"></div>
     </div>
 
     <div id="links" class="hidden">
-      <p class="small" id="linksEmpty">No links on the router yet.</p>
+      <p class="list-empty" id="linksEmpty">No links on the router yet.</p>
       <div id="linkList"></div>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="row setting">
-      <div>
-        <div class="name">Read it again</div>
-        <div class="ep">The page refreshes by itself after every change.</div>
-      </div>
-      <button class="btn" style="width:auto;min-height:48px;padding:12px 16px" onclick="load()">Refresh</button>
-    </div>
-  </div>
+  </section>
 
   <footer>
-    This page lives on the router, not on a computer.<br>
-    Nothing here touches your SIM, your plan, or the Wi-Fi password.<br>
-    Made by Morad
+    Served directly from your ZLT X28 router · Made by Morad
   </footer>
 </main>
 
-<div id="toast"></div>
+<!-- Rename modal -->
+<div class="modal-backdrop" id="renameBackdrop" onclick="if(event.target===this)closeRename()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="renameTitle">
+    <h2 id="renameTitle">Rename config</h2>
+    <p>Letters, digits, - and _ only. The active tunnel keeps running.</p>
+    <input type="text" id="renameInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <div class="modal-err" id="renameErr"></div>
+    <div class="modal-foot">
+      <button class="modal-btn" onclick="closeRename()">Cancel</button>
+      <button class="modal-btn primary" id="renameSave" onclick="submitRename()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirm modal -->
+<div class="modal-backdrop" id="deleteBackdrop" onclick="if(event.target===this)closeDelete()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
+    <h2 id="deleteTitle">Delete config?</h2>
+    <p id="deleteBody">This removes the config permanently from the router.</p>
+    <div class="modal-foot">
+      <button class="modal-btn" onclick="closeDelete()">Cancel</button>
+      <button class="modal-btn danger" id="deleteConfirm" onclick="submitDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (function () {
   var API = '/cgi-bin/zlt';
-  var state = { awg: {on:0}, sb: {on:0}, configs: [], links: [] };
+  var state = { awg: {on: 0, config: '', exit: ''}, sb: {on: 0, link: ''}, split: 0, kill: 0, configs: [], links: [] };
   var tab = 'configs';
+  var renamingName = null;
+  var pendingDelete = null;
+  var working = false;
 
   function toast(msg) {
     var t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.add('show');
     clearTimeout(t._h);
-    t._h = setTimeout(function () { t.classList.remove('show'); }, 5000);
+    t._h = setTimeout(function () { t.classList.remove('show'); }, 4500);
   }
 
-  function busy(on, label) {
+  function setBusy(on, label) {
+    working = !!on;
     var b = document.getElementById('switchBtn');
-    b.disabled = !!on;
-    if (on) {
-      b.innerHTML = '<span class="spin"></span>' + (label || 'Working…');
+    b.disabled = working;
+    document.getElementById('splitToggle').disabled = working;
+    document.getElementById('killToggle').disabled = working;
+    if (working && label) {
+      b.innerHTML = '<span class="spin"></span><span>' + label + '</span>';
     }
   }
 
   function get(act, params) {
     var q = '?act=' + encodeURIComponent(act);
     if (params) {
-      for (var k in params) q += '&' + k + '=' + encodeURIComponent(params[k]);
+      for (var k in params) q += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
     }
     return fetch(API + q, { cache: 'no-store' }).then(function (r) {
-      if (!r.ok) throw new Error('The router answered ' + r.status);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     });
   }
 
-  function load() {
+  function load(manual) {
+    var rBtn = document.getElementById('refreshBtn');
+    if (manual) rBtn.classList.add('spinning');
     get('status').then(function (s) {
+      rBtn.classList.remove('spinning');
       state = s;
       render();
     }).catch(function (e) {
-      document.getElementById('hero').textContent = 'Cannot reach the router';
-      document.getElementById('hero').className = 'hero off';
-      document.getElementById('heroNote').textContent =
-        'Are you still on the ZLT X28 Wi-Fi? ' + e.message;
+      rBtn.classList.remove('spinning');
+      document.getElementById('statusDot').className = 'dot err';
+      document.getElementById('hero').textContent = 'Cannot reach router';
+      document.getElementById('hero').className = 'hero-title off';
+      document.getElementById('heroNote').textContent = 'Make sure you are on the ZLT X28 Wi-Fi (' + e.message + ').';
+      document.getElementById('metaStrip').classList.add('hidden');
     });
   }
 
   function render() {
-    var on = Number(state.awg.on) === 1;
+    var on = Number(state.awg && state.awg.on) === 1;
+    var dot = document.getElementById('statusDot');
     var hero = document.getElementById('hero');
     var note = document.getElementById('heroNote');
+    var strip = document.getElementById('metaStrip');
     var b = document.getElementById('switchBtn');
-    b.disabled = false;
+
+    dot.className = on ? 'dot on' : 'dot off';
 
     if (on) {
       hero.textContent = 'VPN is on';
-      hero.className = 'hero on';
-      note.textContent = 'Everything on this Wi-Fi leaves through '
-        + (state.awg.config ? state.awg.config : 'your server')
-        + ' first. Websites see ' + (state.awg.exit || 'its address') + ', not your SIM.';
-      b.textContent = 'Turn the VPN off';
-      b.className = 'btn';
+      hero.className = 'hero-title on';
+      note.textContent = 'Every device on this Wi-Fi is routed through the tunnel.';
+      document.getElementById('metaConfig').textContent = (state.awg && state.awg.config) || '—';
+      document.getElementById('metaExit').textContent = (state.awg && state.awg.exit) || '—';
+      strip.classList.remove('hidden');
+      if (!working) {
+        b.textContent = 'Turn VPN Off';
+        b.className = 'power-btn turn-off';
+        b.disabled = false;
+      }
     } else {
       hero.textContent = 'VPN is off';
-      hero.className = 'hero off';
-      note.textContent = 'Traffic goes straight out through the mobile network.';
-      b.textContent = 'Turn the VPN on';
-      b.className = 'btn primary';
+      hero.className = 'hero-title off';
+      note.textContent = 'Traffic goes straight out through your SIM carrier.';
+      strip.classList.add('hidden');
+      if (!working) {
+        b.textContent = 'Turn VPN On';
+        b.className = 'power-btn turn-on';
+        b.disabled = false;
+      }
     }
 
-    var sb = document.getElementById('splitBtn');
-    var kb = document.getElementById('killBtn');
-    if (sb) { sb.textContent = Number(state.split) ? 'Turn off' : 'Turn on'; }
-    if (kb) { kb.textContent = Number(state.kill) ? 'Turn off' : 'Turn on'; }
+    var splitEl = document.getElementById('splitToggle');
+    var killEl = document.getElementById('killToggle');
+    splitEl.checked = Number(state.split) === 1;
+    killEl.checked = Number(state.kill) === 1;
+    splitEl.disabled = working;
+    killEl.disabled = working;
 
     renderConfigs();
     renderLinks();
@@ -203,21 +688,32 @@
     empty.classList.toggle('hidden', list.length > 0);
     box.innerHTML = '';
     list.forEach(function (c) {
-      var inUse = c.name === state.awg.config;
-      var div = document.createElement('div');
-      div.className = 'item';
-      div.innerHTML =
-        '<div><div class="name"></div><div class="ep"></div>'
-        + (inUse ? '<div class="inuse">In use</div>' : '') + '</div>'
-        + '<div class="actions"><button class="btn" style="width:auto;min-height:46px;padding:10px 16px">Use</button>'
-        + '<button class="btn danger">Delete</button></div>';
-      div.querySelector('.name').textContent = c.name;
-      div.querySelector('.ep').textContent = c.endpoint || '';
-      var buttons = div.querySelectorAll('button');
-      buttons[0].disabled = inUse;
-      buttons[0].onclick = function () { act('awg_use', {name: c.name}, 'Switching to ' + c.name + '…'); };
-      buttons[1].onclick = function () { removeItem('config', c.name); };
-      box.appendChild(div);
+      var inUse = c.name === (state.awg && state.awg.config);
+      var row = document.createElement('div');
+      row.className = 'item';
+      row.innerHTML =
+        '<div class="item-info">'
+        + '<div class="item-head"><span class="item-name"></span>'
+        + (inUse ? '<span class="inuse-tag">Active</span>' : '') + '</div>'
+        + '<div class="item-ep"></div>'
+        + '</div>'
+        + '<div class="actions">'
+        + '<button class="chip-btn" data-act="use">' + (inUse ? 'In use' : 'Use') + '</button>'
+        + '<button class="chip-btn ghost" data-act="rename" title="Rename">'
+        + '<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 1 1 3 3L7 19l-4 1 1-4Z"/></svg>'
+        + '<span>Rename</span></button>'
+        + '<button class="chip-btn danger-ghost" data-act="del" aria-label="Delete" title="Delete">'
+        + '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>'
+        + '</button>'
+        + '</div>';
+      row.querySelector('.item-name').textContent = c.name;
+      row.querySelector('.item-ep').textContent = c.endpoint || 'No endpoint';
+      var useBtn = row.querySelector('[data-act="use"]');
+      useBtn.disabled = inUse || working;
+      useBtn.onclick = function () { act('awg_use', {name: c.name}, 'Switching to ' + c.name + '…'); };
+      row.querySelector('[data-act="rename"]').onclick = function () { openRename(c.name); };
+      row.querySelector('[data-act="del"]').onclick = function () { openDelete('config', c.name); };
+      box.appendChild(row);
     });
   }
 
@@ -228,70 +724,145 @@
     empty.classList.toggle('hidden', list.length > 0);
     box.innerHTML = '';
     list.forEach(function (l) {
-      var div = document.createElement('div');
-      div.className = 'item';
-      div.innerHTML =
-        '<div><div class="name"></div><div class="ep">Share link</div>'
-        + (l.name === state.sb.link ? '<div class="inuse">In use</div>' : '') + '</div>'
-        + '<div class="actions"><button class="btn" style="width:auto;min-height:46px;padding:10px 16px">Use</button>'
-        + '<button class="btn danger">Delete</button></div>';
-      div.querySelector('.name').textContent = l.name;
-      var buttons = div.querySelectorAll('button');
-      buttons[0].onclick = function () { act('sb_use', {name: l.name}, 'Switching to ' + l.name + '…'); };
-      buttons[1].onclick = function () {
-        if (confirm('Delete ' + l.name + ' from the router? This cannot be undone.')) {
-          act('sb_delete', {name: l.name}, 'Deleting ' + l.name + '…');
-        }
-      };
-      box.appendChild(div);
+      var inUse = l.name === (state.sb && state.sb.link);
+      var row = document.createElement('div');
+      row.className = 'item';
+      row.innerHTML =
+        '<div class="item-info">'
+        + '<div class="item-head"><span class="item-name"></span>'
+        + (inUse ? '<span class="inuse-tag">Active</span>' : '') + '</div>'
+        + '<div class="item-ep">Share link</div>'
+        + '</div>'
+        + '<div class="actions">'
+        + '<button class="chip-btn" data-act="use">' + (inUse ? 'In use' : 'Use') + '</button>'
+        + '<button class="chip-btn danger-ghost" data-act="del" aria-label="Delete" title="Delete">'
+        + '<svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>'
+        + '</button>'
+        + '</div>';
+      row.querySelector('.item-name').textContent = l.name;
+      var useBtn = row.querySelector('[data-act="use"]');
+      useBtn.disabled = inUse || working;
+      useBtn.onclick = function () { act('sb_use', {name: l.name}, 'Switching to ' + l.name + '…'); };
+      row.querySelector('[data-act="del"]').onclick = function () { openDelete('link', l.name); };
+      box.appendChild(row);
     });
   }
 
+  function openRename(name) {
+    renamingName = name;
+    var input = document.getElementById('renameInput');
+    var err = document.getElementById('renameErr');
+    var save = document.getElementById('renameSave');
+    input.value = name;
+    err.textContent = '';
+    save.disabled = false;
+    document.getElementById('renameBackdrop').classList.add('open');
+    setTimeout(function () { input.focus(); input.select(); }, 40);
+  }
+
+  function closeRename() {
+    renamingName = null;
+    document.getElementById('renameBackdrop').classList.remove('open');
+  }
+
+  function validateRename(raw) {
+    var cleaned = raw.trim().replace(/\s+/g, '-');
+    if (!cleaned) return { ok: false, msg: 'Enter a name.' };
+    if (!/^[A-Za-z0-9_-]+$/.test(cleaned)) return { ok: false, msg: 'Use letters, digits, - or _ only.' };
+    if (cleaned !== renamingName && (state.configs || []).some(function (c) { return c.name === cleaned; })) {
+      return { ok: false, msg: 'A config named ' + cleaned + ' already exists.' };
+    }
+    return { ok: true, cleaned: cleaned };
+  }
+
+  document.getElementById('renameInput').addEventListener('input', function (e) {
+    var v = validateRename(e.target.value);
+    document.getElementById('renameErr').textContent = v.ok ? '' : v.msg;
+    document.getElementById('renameSave').disabled = !v.ok;
+  });
+
+  document.getElementById('renameInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); submitRename(); }
+    if (e.key === 'Escape') { e.preventDefault(); closeRename(); }
+  });
+
+  function submitRename() {
+    if (!renamingName) return;
+    var v = validateRename(document.getElementById('renameInput').value);
+    if (!v.ok) {
+      document.getElementById('renameErr').textContent = v.msg;
+      return;
+    }
+    var oldName = renamingName;
+    closeRename();
+    if (v.cleaned === oldName) return;
+    act('awg_rename', {old: oldName, new: v.cleaned}, 'Renaming ' + oldName + '…');
+  }
+
+  function openDelete(kind, name) {
+    pendingDelete = { kind: kind, name: name };
+    document.getElementById('deleteTitle').textContent = 'Delete ' + name + '?';
+    document.getElementById('deleteBody').textContent =
+      'This removes ' + name + ' permanently from the router. If it is active, the tunnel stops first.';
+    document.getElementById('deleteBackdrop').classList.add('open');
+  }
+
+  function closeDelete() {
+    pendingDelete = null;
+    document.getElementById('deleteBackdrop').classList.remove('open');
+  }
+
+  function submitDelete() {
+    if (!pendingDelete) return;
+    var target = pendingDelete;
+    closeDelete();
+    if (target.kind === 'config') {
+      act('awg_delete', {name: target.name}, 'Deleting ' + target.name + '…');
+    } else {
+      act('sb_delete', {name: target.name}, 'Deleting ' + target.name + '…');
+    }
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeRename(); closeDelete(); }
+  });
+
   function toggleSplit() {
-    var on = Number(state.split) === 1;
-    act(on ? 'split_off' : 'split_on', null, on ? 'Turning it off…' : 'Turning it on…');
+    var next = document.getElementById('splitToggle').checked;
+    act(next ? 'split_on' : 'split_off', null, next ? 'Enabling Iranian bypass…' : 'Disabling Iranian bypass…');
   }
 
   function toggleKill() {
-    var on = Number(state.kill) === 1;
-    act(on ? 'kill_off' : 'kill_on', null, on ? 'Turning it off…' : 'Turning it on…');
+    var next = document.getElementById('killToggle').checked;
+    act(next ? 'kill_on' : 'kill_off', null, next ? 'Enabling kill switch…' : 'Disabling kill switch…');
   }
 
   function flip() {
-    if (Number(state.awg.on) === 1) {
-      busy(true, 'Turning off…');
+    if (Number(state.awg && state.awg.on) === 1) {
+      setBusy(true, 'Turning off…');
       get('awg_off').then(after).catch(recover);
     } else {
-      busy(true, 'Turning on…');
+      setBusy(true, 'Turning on…');
       get('awg_on').then(after).catch(recover);
     }
   }
 
   function act(name, params, label) {
+    setBusy(true);
     toast(label || 'Working…');
     get(name, params).then(after).catch(recover);
   }
 
   function after(r) {
-    busy(false);
-    if (r && r.say) toast(r.say);
-    if (r && r.ok === false) {
-      document.getElementById('toast').textContent = 'That did not work: ' + (r.say || 'no reason given');
-    }
-    load();
+    setBusy(false);
+    if (r && r.say) toast(r.ok === false ? 'Could not complete: ' + r.say : r.say);
+    load(false);
   }
 
   function recover(e) {
-    busy(false);
+    setBusy(false);
     toast('The router did not answer. ' + (e && e.message ? e.message : ''));
-    load();
-  }
-
-  function removeItem(kind, name) {
-    var question = 'Delete ' + name + ' from the router? This cannot be undone.';
-    if (!confirm(question)) return;
-    if (kind === 'config') act('awg_delete', {name: name}, 'Deleting ' + name + '…');
-    else act('sb_delete', {name: name}, 'Deleting ' + name + '…');
+    load(false);
   }
 
   function setTab(which) {
@@ -307,9 +878,13 @@
   window.toggleSplit = toggleSplit;
   window.toggleKill = toggleKill;
   window.load = load;
+  window.closeRename = closeRename;
+  window.submitRename = submitRename;
+  window.closeDelete = closeDelete;
+  window.submitDelete = submitDelete;
 
-  load();
-  setInterval(load, 15000);
+  load(false);
+  setInterval(function () { if (!working && !renamingName && !pendingDelete) load(false); }, 15000);
 })();
 </script>
 </body>
