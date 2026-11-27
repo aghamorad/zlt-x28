@@ -1,3 +1,12 @@
+## ZLT X28 1.5.1
+
+**New Macs connect straight to an already-set-up router.** Previously, installing the app on a second or new computer while connected to an already-configured X28 showed **Not set up yet** and asked to run full setup — even when the browser page (`http://192.168.70.1/zlt.html`) worked — because each Mac generates its own SSH key and the new Mac's key was not yet in the router's `authorized_keys`.
+
+- **Auto-pair on launch:** when SSH fails on a reachable router, the app probes `http://192.168.70.1/cgi-bin/zlt?act=status`. If the router answers, the app knows the VPN engine is already installed and automatically adds this Mac's SSH key (~4 seconds, no local HTTP server, no 14 MB engine reinstall).
+- **Clear fallback when password differs:** if the router's admin password was changed from the default, the app no longer falsely reports **Can't see the router**; it says **Admin password needed** and offers a 1-click **Connect this Mac (key only)** action plus **Open in browser**.
+- **Web page probe fixed:** `refresh()` previously checked `/tzwww/zlt/index.html` instead of `/tzwww/zlt.html`, causing unnecessary re-uploads on every refresh.
+- **`install.sh` sing-box version check updated** from `1.14.3` to `1.14.4`.
+
 ## ZLT X28 1.5.0
 
 **A design pass, not a feature pass.** The app looked like the default AI dashboard: neutral near-black, a blue accent, every block a 14 px-rounded card with a soft border, coloured pills, a big title over tiny grey text. It worked, but it did not look like anything in particular.

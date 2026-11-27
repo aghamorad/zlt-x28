@@ -120,7 +120,7 @@ place amneziawg.init   /etc/init.d/amneziawg     755 || exit 1
 
 # The link engine. 86 MB on disk, so it is streamed off the Mac already
 # compressed and unpacked straight into place — /tmp on this router is RAM.
-SB_VERSION=1.14.3
+SB_VERSION=1.14.4
 if [ -x "$PROGRAM_DIR/sing-box" ] && "$PROGRAM_DIR/sing-box" version 2>/dev/null \
         | grep -q "$SB_VERSION"; then
     echo "sing-box $SB_VERSION already installed"

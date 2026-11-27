@@ -418,6 +418,13 @@ final class AppModel: ObservableObject {
 
     @Published var reach: Reach = .checking
     @Published var provisioned = false
+    /// True when the router's own web API (/cgi-bin/zlt) answers, proving the
+    /// VPN engine is already installed even if this Mac has no SSH key on the
+    /// router yet (e.g. first launch on a new computer).
+    @Published var routerAlreadySetUp = false
+    /// True when 192.168.70.1 answered, but the admin panel rejected the stored
+    /// password. Keeps the UI from falsely saying "Can't see the router".
+    @Published var panelAuthFailed = false
 
     /// "Have I looked?" and "I looked and failed" are different answers, and
     /// the app should not print the second while it means the first.
@@ -577,6 +584,7 @@ final class AppModel: ObservableObject {
 
     private var refreshing = false
     private var repairingWebApp = false
+    private var attemptedAutoPair = false
     private let server = FileServer(root: AppResources.routerDirectory)
 
     var vpnOn: Bool { engine == .amnezia ? status.isOn : sb.isOn }
@@ -610,6 +618,8 @@ final class AppModel: ObservableObject {
         guard await Self.routerAnswers() else {
             reach = .unreachable
             provisioned = false
+            routerAlreadySetUp = false
+            panelAuthFailed = false
             lastRefresh = Date()
             return
         }
@@ -617,6 +627,7 @@ final class AppModel: ObservableObject {
         let panel = PanelClient(password: password)
         var info = CarrierInfo()
         var panelOK = false
+        var authRejected = false
         do {
             let basics = try await panel.command(113)
             let network = try? await panel.command(0)
@@ -645,34 +656,51 @@ final class AppModel: ObservableObject {
             }
         } catch {
             panelOK = false
+            authRejected = error.localizedDescription.lowercased().contains("rejected the admin password")
         }
 
         carrier = info
-        reach = panelOK ? .reachable : .unreachable
+        panelAuthFailed = authRejected
+        reach = (panelOK || authRejected) ? .reachable : .unreachable
 
         guard panelOK else {
             provisioned = false
+            routerAlreadySetUp = authRejected ? await Self.webAppAnswers() : false
             lastRefresh = Date()
             return
         }
 
-        let probe = await RouterSSH.run(
-            "/usr/bin/vpn awg list 2>/dev/null; echo '@@'; "
-            + "/usr/bin/vpn awg status 2>/dev/null; echo '@@'; "
-            + "for f in /etc/amneziawg/awg0.conf.*; do [ -f \"$f\" ] || continue; "
-            + "n=${f##*.}; [ \"$n\" = current ] && continue; "
-            + "case \"$n\" in disabled-*|*.disabled-*) continue ;; esac; echo \"cfg:$n\"; "
-            + "awk -F' *= *' 'tolower($1)==\"endpoint\" {print \"endpoint:\" $2; exit}' \"$f\"; "
-            + "done; echo '@@'; /usr/bin/vpn sb status quick 2>/dev/null; echo '@@'; "
-            + "[ -x /data/zltx28/bin/sing-box ] && echo SB_INSTALLED || echo SB_MISSING; "
-            + "/usr/bin/vpn sb list 2>/dev/null; echo '@@'; "
-            + "for f in /data/zltx28/singbox/links/*.link; do [ -f \"$f\" ] || continue; "
-            + "n=${f##*/}; n=${n%.link}; echo \"LINK:$n\"; cat \"$f\"; echo; done; "
-            + "echo '@@'; [ -x /tzwww/cgi-bin/zlt ] && [ -f /tzwww/zlt/index.html ] "
-            + "&& echo WEB_OK || echo WEB_MISSING",
-            timeout: 45)
+        var probe = await Self.probeRouterOverSSH()
+        var sshProvisioned = probe.ok && probe.output.contains("daemon")
 
-        provisioned = probe.ok && probe.output.contains("daemon")
+        if !sshProvisioned {
+            // SSH failed — either the router has never been set up, or this is a
+            // new Mac whose SSH key is not on the router yet. Ask the router's
+            // own HTTP status endpoint (the same one the browser page uses).
+            let webLive = await Self.webAppAnswers()
+            routerAlreadySetUp = webLive
+            if webLive, !attemptedAutoPair, !setupRunning {
+                attemptedAutoPair = true
+                busy = "Connecting this Mac to the router…"
+                let provisioner = Provisioner(
+                    password: password,
+                    server: server,
+                    publish: { _ in })
+                let paired = (try? await provisioner.pairKeyOnly()) ?? false
+                busy = nil
+                if paired {
+                    probe = await Self.probeRouterOverSSH()
+                    sshProvisioned = probe.ok && probe.output.contains("daemon")
+                    if sshProvisioned {
+                        notice = "Connected this Mac to the router."
+                    }
+                }
+            }
+        } else {
+            routerAlreadySetUp = true
+        }
+
+        provisioned = sshProvisioned
         guard provisioned else { lastRefresh = Date(); return }
 
         let sections = probe.output.components(separatedBy: "@@")
@@ -696,6 +724,50 @@ final class AppModel: ObservableObject {
         // A firmware update wipes the router's web folder. Put the page back unprompted.
         if webAppReady == false, !repairingWebApp {
             Task { await self.repairWebApp() }
+        }
+    }
+
+    private static func probeRouterOverSSH() async -> ShellResult {
+        await RouterSSH.run(
+            "/usr/bin/vpn awg list 2>/dev/null; echo '@@'; "
+            + "/usr/bin/vpn awg status 2>/dev/null; echo '@@'; "
+            + "for f in /etc/amneziawg/awg0.conf.*; do [ -f \"$f\" ] || continue; "
+            + "n=${f##*.}; [ \"$n\" = current ] && continue; "
+            + "case \"$n\" in disabled-*|*.disabled-*) continue ;; esac; echo \"cfg:$n\"; "
+            + "awk -F' *= *' 'tolower($1)==\"endpoint\" {print \"endpoint:\" $2; exit}' \"$f\"; "
+            + "done; echo '@@'; /usr/bin/vpn sb status quick 2>/dev/null; echo '@@'; "
+            + "[ -x /data/zltx28/bin/sing-box ] && echo SB_INSTALLED || echo SB_MISSING; "
+            + "/usr/bin/vpn sb list 2>/dev/null; echo '@@'; "
+            + "for f in /data/zltx28/singbox/links/*.link; do [ -f \"$f\" ] || continue; "
+            + "n=${f##*/}; n=${n%.link}; echo \"LINK:$n\"; cat \"$f\"; echo; done; "
+            + "echo '@@'; [ -x /tzwww/cgi-bin/zlt ] && [ -f /tzwww/zlt.html ] "
+            + "&& echo WEB_OK || echo WEB_MISSING",
+            timeout: 45)
+    }
+
+    /// True when the router's own web API (/cgi-bin/zlt) answers with live VPN
+    /// status — meaning the router is already set up even if this Mac has no SSH
+    /// key installed yet.
+    static func webAppAnswers() async -> Bool {
+        guard let url = URL(string: "http://\(RouterSSH.host)/cgi-bin/zlt?act=status") else {
+            return false
+        }
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 4
+        config.waitsForConnectivity = false
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.connectionProxyDictionary = [:]
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        do {
+            let (data, response) = try await session.data(from: url)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                  let text = String(data: data, encoding: .utf8) else {
+                return false
+            }
+            return text.contains("\"awg\"")
+        } catch {
+            return false
         }
     }
 
@@ -1418,7 +1490,11 @@ final class AppModel: ObservableObject {
         let panel = PanelClient(password: password)
         do {
             _ = try await panel.command(113)
-            notice = "The admin password works. You can install the engine."
+            panelAuthFailed = false
+            attemptedAutoPair = false
+            notice = routerAlreadySetUp
+                ? "The admin password works. Connecting this Mac…"
+                : "The admin password works. You can install the engine."
         } catch {
             notice = error.localizedDescription
         }
@@ -2080,6 +2156,36 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: - Setup
+
+    /// Pairs this Mac's SSH key with a router that already has the VPN engine
+    /// installed. Takes ~5 seconds and never reinstalls router binaries.
+    func pairThisMac() async {
+        guard !setupRunning else { return }
+        setupRunning = true
+        setupFinished = false
+        setupLog = []
+        notice = nil
+        attemptedAutoPair = true
+        let provisioner = Provisioner(
+            password: password,
+            server: server,
+            publish: { [weak self] line in
+                guard let self else { return }
+                self.setupLog.append(line)
+            })
+        do {
+            let hasEngine = try await provisioner.pairKeyOnly()
+            setupFinished = hasEngine
+            notice = hasEngine
+                ? "Connected this Mac to the router."
+                : "This Mac's key is installed. Run Install the VPN engine to finish."
+        } catch {
+            setupLog.append("Stopped: \(error.localizedDescription)")
+            notice = error.localizedDescription
+        }
+        setupRunning = false
+        await refresh()
+    }
 
     func runSetup() async {
         guard !setupRunning else { return }

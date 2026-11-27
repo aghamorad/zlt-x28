@@ -350,7 +350,20 @@ struct HomeView: View {
             return ("Can't see the router",
                     "Connect this Mac to the X28's Wi-Fi, then press refresh.")
         }
+        if model.panelAuthFailed {
+            return ("Admin password needed",
+                    model.routerAlreadySetUp
+                    ? "The router is already set up, but it rejected the stored admin password. "
+                      + "Enter it in Router setup to connect this Mac."
+                    : "The router answered, but rejected the admin password. "
+                      + "Enter it in Router setup.")
+        }
         if !model.provisioned {
+            if model.routerAlreadySetUp {
+                return ("Connect this Mac",
+                        "The router's VPN is already set up. This Mac just needs its own "
+                        + "access key — about 5 seconds, nothing on the router is reinstalled.")
+            }
             return ("Not set up yet",
                     "The switch needs one short setup step before it can work. "
                     + "It takes about a minute.")
@@ -423,25 +436,55 @@ struct HomeView: View {
 
     private var setupBanner: some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: "wand.and.stars")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
+            Image(systemName: model.routerAlreadySetUp ? "key.horizontal" : "wand.and.stars")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.amber)
             VStack(alignment: .leading, spacing: 6) {
-                Text("One-time setup").font(.headline)
-                Text("This app has not prepared the router yet. Setup installs the VPN "
-                    + "engine and is safe to repeat. It does not flash firmware or "
-                    + "change your internet settings.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                Text(model.routerAlreadySetUp
+                     ? "This router is already set up"
+                     : "One-time setup")
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                Text(model.routerAlreadySetUp
+                     ? (model.panelAuthFailed
+                        ? "Your VPN is already running on the router, so the browser page works. "
+                          + "Enter the router's admin password once so this Mac can add its own access key."
+                        : "Your VPN is already running on the router (that's why the browser page works). "
+                          + "This Mac just needs its own access key added — nothing is reinstalled.")
+                     : "This app has not prepared the router yet. Setup installs the VPN "
+                       + "engine and is safe to repeat. It does not flash firmware or "
+                       + "change your internet settings.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.muted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
-            Button("Open setup") { section = .setup }
-                .buttonStyle(.borderedProminent)
+            HStack(spacing: 8) {
+                if model.routerAlreadySetUp {
+                    Button("Open in browser") { model.openWebApp() }
+                        .buttonStyle(.bordered)
+                    if model.panelAuthFailed {
+                        Button("Enter password") { section = .setup }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Theme.amber)
+                    } else {
+                        Button("Connect this Mac") { Task { await model.pairThisMac() } }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Theme.amber)
+                            .disabled(model.setupRunning || model.busy != nil)
+                    }
+                } else {
+                    Button("Open setup") { section = .setup }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Theme.amber)
+                }
+            }
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .fill(Color.accentColor.opacity(0.08)))
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .strokeBorder(Theme.hairline))
     }
 
     private var routerCard: some View {
@@ -1117,6 +1160,8 @@ struct SetupView: View {
 
             if model.provisioned {
                 alreadyCard
+            } else if model.routerAlreadySetUp {
+                pairOnlyCard
             } else {
                 InfoBox(title: "Before you start",
                         text: "This does not flash the router and does not reboot it. "
@@ -1231,6 +1276,48 @@ struct SetupView: View {
             Text("The router is at 192.168.70.1. Files are copied over your local "
                  + "network. Nothing is flashed and the router is not rebooted.")
         }
+    }
+
+    private var pairOnlyCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "key.horizontal")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(Theme.amber)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("This router is already set up")
+                        .font(.system(size: 13.5, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                    Text("The VPN engine is already installed on the router. You do not "
+                        + "need to reinstall it — just add this Mac's access key (takes about "
+                        + "5 seconds). Type the admin password below first if you changed it "
+                        + "from the default.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Theme.muted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+            }
+            HStack(spacing: 10) {
+                Button("Connect this Mac (key only)") {
+                    Task { await model.pairThisMac() }
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.amber)
+                .disabled(model.setupRunning || model.reach != .reachable || model.password.isEmpty)
+                Button("Open in browser") { model.openWebApp() }
+                    .buttonStyle(.bordered)
+                if model.setupRunning {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            logView
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(Theme.panel))
+        .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .strokeBorder(Theme.hairline))
     }
 
     private var alreadyCard: some View {

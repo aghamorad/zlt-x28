@@ -17,13 +17,27 @@ final class Provisioner {
         self.publish = publish
     }
 
-    func provision() async throws {
-        guard let macIP = LocalAddress.onRouterLAN() else {
-            throw ZLTError("This Mac has no address on the router's network. "
-                           + "Connect to the X28's Wi-Fi first.")
+    /// Adds this Mac's SSH key to a router that already has the VPN engine
+    /// installed, without starting a local file server or reinstalling binaries.
+    /// Returns true when the engine is already present on the router.
+    func pairKeyOnly() async throws -> Bool {
+        try await installKey()
+        let check = await RouterSSH.run(
+            "[ -x /usr/bin/vpn ] && echo ENGINE_OK || echo ENGINE_MISSING",
+            timeout: 15)
+        let hasEngine = check.output.contains("ENGINE_OK")
+        if hasEngine {
+            publish("The router's VPN engine is already installed. This Mac is now connected.")
+        } else {
+            publish("This Mac's key is installed, but the VPN engine is not on the router yet.")
         }
-        publish("This Mac is at \(macIP). The router will fetch the files from here.")
+        return hasEngine
+    }
 
+    /// Ensures this Mac has an RSA key, opens the router's temporary Telnet door
+    /// via the admin panel, appends the key to authorized_keys, closes the door,
+    /// and confirms password-free SSH works.
+    private func installKey() async throws {
         try await RouterSSH.ensureKey()
         let publicKey = await RouterSSH.publicKey()
         guard !publicKey.isEmpty else {
@@ -84,6 +98,16 @@ final class Provisioner {
             throw ZLTError("The key was added but SSH did not come up. "
                            + "Reboot the router and run setup again.")
         }
+    }
+
+    func provision() async throws {
+        guard let macIP = LocalAddress.onRouterLAN() else {
+            throw ZLTError("This Mac has no address on the router's network. "
+                           + "Connect to the X28's Wi-Fi first.")
+        }
+        publish("This Mac is at \(macIP). The router will fetch the files from here.")
+
+        try await installKey()
 
         publish("Starting the local file server…")
         try server.start()
